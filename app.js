@@ -15,7 +15,7 @@ const CLOUD = window.CloudSync || {enabled: false, status: () => ({state: 'off'}
 // Welcome messages — one per visit, rotating; the name is always added at the end
 const WELCOMES = [
   'Welcome back,',
-  'Ready to make some waves today,',
+  'Go make some waves today,',
   'A new star joins your constellation,',
   'The tide brought you back,',
   'Small drops make an ocean,'

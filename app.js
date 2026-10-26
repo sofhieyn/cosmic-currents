@@ -355,19 +355,27 @@ function filterBar(key, extra = '') {
 
 /* ---------------- Logo ---------------- */
 // Saturn rising over layered waves, in the app's blues. Animated softly.
-const logoSVG = (size = 36, still = false) => `<svg class="logo${still ? '' : ' moving'}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">
-  <defs><linearGradient id="lgPlanet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cdeaf8"/><stop offset=".5" stop-color="#5aa9d6"/><stop offset="1" stop-color="#1769aa"/></linearGradient></defs>
-  <g class="lg-planet">
-    <g transform="rotate(-18 32 25)">
-      <path d="M8.5 25 A23.5 6.8 0 0 1 55.5 25" fill="none" stroke="#7fbde3" stroke-width="2.6" stroke-linecap="round"/>
-      <circle cx="32" cy="25" r="11.5" fill="url(#lgPlanet)"/>
-      <path d="M8.5 25 A23.5 6.8 0 0 0 55.5 25" fill="none" stroke="#0f3d66" stroke-width="2.8" stroke-linecap="round"/>
-    </g>
+// Saturn: a crescent-shaded planet with craters, a tapered ring and a sparkle — all blues.
+// Every logo gets its own ids, so it always renders (even when another copy is hidden).
+let logoN = 0;
+const logoSVG = (size = 36, still = false) => {
+  const n = ++logoN;
+  return `<svg class="logo${still ? '' : ' moving'}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">
+  <defs>
+    <linearGradient id="lgB${n}" x1="0.85" y1="0.1" x2="0.15" y2="0.9"><stop offset="0" stop-color="#d7eefb"/><stop offset=".55" stop-color="#6fb6e0"/><stop offset="1" stop-color="#2a7fc0"/></linearGradient>
+    <linearGradient id="lgR${n}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0f3d66"/><stop offset=".5" stop-color="#1769aa"/><stop offset="1" stop-color="#3a9bd5"/></linearGradient>
+    <mask id="lgM${n}"><circle cx="32" cy="32" r="15" fill="#fff"/><circle cx="39" cy="25" r="15.5" fill="#000"/></mask>
+  </defs>
+  <g class="lg-ring-back"><path transform="rotate(-24 32 32)" d="M3 32 A29 8.6 0 0 1 61 32 A29 6.2 0 0 0 3 32 Z" fill="#9fd0ee"/></g>
+  <circle cx="32" cy="32" r="15" fill="url(#lgB${n})"/>
+  <g mask="url(#lgM${n})">
+    <circle cx="32" cy="32" r="15" fill="#0f3d66"/>
+    <circle cx="23.5" cy="35" r="1.9" fill="#5aa9d6"/><circle cx="27.5" cy="41.5" r="1.3" fill="#5aa9d6"/><circle cx="20.8" cy="29.5" r="1.1" fill="#5aa9d6"/><circle cx="31.5" cy="44.2" r=".9" fill="#5aa9d6"/>
   </g>
-  <path class="lg-w1" fill="#3a9bd5" d="M2 42 C14 34 24 35 33 40 C42 45 52 44 62 36 C53 47 42 50 32 46 C23 42 13 40 2 42 Z"/>
-  <path class="lg-w2" fill="#1769aa" d="M6 50 C17 43 26 44 35 48.5 C44 53 53 52 62 45 C54 55 44 58 34 54 C25 50 16 48 6 50 Z"/>
-  <path class="lg-w3" fill="#0f3d66" d="M14 57 C23 53.5 31 54 39 57 C47 60 54 59.5 60 56 C54 62.5 46 63.5 38 61 C30 58.5 22 58 14 57 Z"/>
+  <g class="lg-ring"><path transform="rotate(-24 32 32)" d="M3 32 A29 8.6 0 0 0 61 32 A29 5.6 0 0 1 3 32 Z" fill="url(#lgR${n})"/></g>
+  <path class="lg-spark" d="M53 7.5 L54.3 11 L57.8 12.3 L54.3 13.6 L53 17.1 L51.7 13.6 L48.2 12.3 L51.7 11 Z" fill="#5aa9d6"/>
 </svg>`;
+};
 function applyLogo() {
   document.querySelectorAll('.sidebar .brand-logo').forEach(el => { el.innerHTML = logoSVG(40); el.classList.add('has-logo'); });
   const tb = $('.topbar-brand'); if (tb) tb.innerHTML = `${logoSVG(28)}<span>Cosmic Currents</span>`;
@@ -376,6 +384,143 @@ function applyLogo() {
   if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
   link.type = 'image/svg+xml';
   link.href = 'data:image/svg+xml,' + encodeURIComponent(logoSVG(64, true).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+}
+
+/* ---------------- Pocket icons (Notion-style picker) ----------------
+   Simple line icons drawn for Cosmic Currents. A pocket's icon is saved
+   as "i:<name>" (icon) or "e:<emoji>" (emoji); empty = initials. */
+const PICON_GROUPS = [
+  ['Money', {
+    wallet: '<path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-3v3"/><path d="M16 13.5h2"/>',
+    coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 14v3c0 1.7 2.7 3 6 3s6-1.3 6-3v-4c0-1.7-2.7-3-6-3"/>',
+    banknote: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>',
+    card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+    bank: '<path d="M3 10l9-6 9 6z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
+    piggy: '<path d="M5 12a7 6 0 0 1 12-4h2l1 2.2-1 .8v3l-2 1.2V18h-3v-2h-4v2H7v-2.6C5.8 14.5 5 13.3 5 12z"/><path d="M2.5 10.5c0 1.4 1 2 2.5 2M15 11h.01"/>',
+    chart: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    gem: '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M12 20 9 9l3-5 3 5-3 11"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    percent: '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'
+  }],
+  ['Home & bills', {
+    home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    droplet: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+    wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5v.01"/>',
+    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    flame: '<path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 2 1.5 3 2.5 3 0-3-1-5 0-8z"/>',
+    tv: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 2l4 4 4-4"/>',
+    laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    box: '<path d="M12 3l9 4.5v9L12 21l-9-4.5v-9z"/><path d="M3 7.5l9 4.5 9-4.5M12 12v9"/>'
+  }],
+  ['Travel & transport', {
+    plane: '<path d="M10.5 21 13 14h5.5a2 2 0 0 0 0-4H13l-2.5-7h-2l1.5 7H6L4.5 8H3l1 4-1 4h1.5L6 14h4l-1.5 7z"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/>',
+    pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    car: '<path d="M4 16v-3l2-5h12l2 5v3z"/><path d="M4 13h16"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>',
+    bus: '<rect x="5" y="3" width="14" height="15" rx="2"/><path d="M5 11h14M8 21v-3M16 21v-3M8.5 14.5h.01M15.5 14.5h.01"/>',
+    bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8 6H6M14 9l-2 7"/>',
+    fuel: '<path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M4 10h11"/><path d="M15 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V9l-3-3"/>',
+    island: '<path d="M12 21v-9M12 12c-1-4-5-5-8-3 3 0 5 1 8 3zM12 12c1-4 5-5 8-3-3 0-5 1-8 3zM12 12c-2-2-2-6 0-8 2 2 2 6 0 8M6 21h12"/>'
+  }],
+  ['Food & shopping', {
+    coffee: '<path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h2a2 2 0 0 1 0 4h-2M8 2v3M12 2v3"/>',
+    utensils: '<path d="M7 3v18M4 3v5a3 3 0 0 0 6 0V3M17 21V3c-2 0-3 3-3 7h3"/>',
+    cart: '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.5 12h11l2-8H6.5"/>',
+    bag: '<path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    cake: '<path d="M4 21h16v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1 3 1 4 0s3-1 4 0 3 1 4 0 3-1 4 0M12 11V7M12 4.5v.01"/>',
+    shirt: '<path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z"/>',
+    gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8C10 4 6.5 4.5 7 7c.3 1 2 1 5 1zM12 8c2-4 5.5-3.5 5-1-.3 1-2 1-5 1"/>'
+  }],
+  ['Life & fun', {
+    heart: '<path d="M12 20s-8-4.6-8-10.2A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.8C20 15.4 12 20 12 20z"/>',
+    music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    ticket: '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4z"/><path d="M15 6v12"/>',
+    film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/>',
+    game: '<path d="M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.5 1.6L15 14H9l-1.5 1.6A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z"/><path d="M7 11v3M5.5 12.5h3M16 12h.01M18 13.5h.01"/>',
+    camera: '<path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
+    headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15a2 2 0 0 1 2-2h1v7H6a2 2 0 0 1-2-2zM20 15a2 2 0 0 0-2-2h-1v7h1a2 2 0 0 0 2-2z"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21h15M8 7h7"/>',
+    grad: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
+    ring: '<circle cx="12" cy="15" r="6"/><path d="M9.5 4h5l1.5 2.5L12 9 8 6.5z"/>',
+    family: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>',
+    paw: '<circle cx="8" cy="7" r="2"/><circle cx="16" cy="7" r="2"/><circle cx="5" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/><path d="M12 12c-3 0-5.5 4-5.5 6a2.5 2.5 0 0 0 3 2.3c1-.3 1.7-.5 2.5-.5s1.5.2 2.5.5a2.5 2.5 0 0 0 3-2.3c0-2-2.5-6-5.5-6z"/>'
+  }],
+  ['Health & care', {
+    pill: '<path d="M10.5 3.5a5 5 0 0 1 7 7l-7 7a5 5 0 0 1-7-7z"/><path d="M7 10l7 7"/>',
+    medical: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+    dumbbell: '<path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+    umbrella: '<path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v7a2 2 0 0 0 4 0"/>',
+    sparkles: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>'
+  }],
+  ['Cosmic & nature', {
+    planet: '<circle cx="12" cy="12" r="5.5"/><path d="M4.2 16.6c-1.4-1.9 2.4-5 8.1-7.2s10.6-2.4 11.2-.3c.3 1-.7 2.4-2.6 3.8"/>',
+    star: '<path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.3L12 17.5 6.5 20.4l1-6.3L3 9.7l6.2-.9z"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    wave: '<path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1"/>',
+    leaf: '<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15z"/><path d="M5 19l8-8"/>',
+    flag: '<path d="M5 21V4h11l-2 4 2 4H5"/>'
+  }]
+];
+const PICONS = Object.assign({}, ...PICON_GROUPS.map(g => g[1]));
+const EMOJI_SUGGEST = ['💰', '💸', '🏦', '💳', '🐷', '🎯', '🏠', '⚡', '💧', '📶', '📱', '✈️', '🌏', '🚗', '🛵', '☕', '🍜', '🛒', '🎁', '🎓', '📚', '🎵', '🎬', '🎮', '💊', '🏋️', '🐾', '👶', '💍', '🌙', '🪐', '🌊'];
+const piconSVG = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PICONS[name] || ''}</svg>`;
+
+function openIconPicker(anchor, current, color, onPick) {
+  closePicker();
+  let tab = String(current || '').startsWith('e:') ? 'emoji' : 'icons';
+  const pop = document.createElement('div');
+  pop.className = 'pick-pop icon-pop';
+  pop.dataset.for = 'icon';
+  document.body.appendChild(pop);
+  pickerEl = pop;
+  const draw = () => {
+    const q = (pop.querySelector('.pick-search')?.value || '').trim().toLowerCase();
+    pop.innerHTML = `<div class="pick-head">
+        <div class="icon-tabs"><button type="button" class="${tab === 'icons' ? 'on' : ''}" data-ip-tab="icons">Icons</button><button type="button" class="${tab === 'emoji' ? 'on' : ''}" data-ip-tab="emoji">Emoji</button></div>
+        <div class="icon-head-r">${current ? '<button type="button" class="link-btn" data-ip-remove>Remove</button>' : ''}<button type="button" class="icon-btn" data-pick-close aria-label="Close">${icon('close')}</button></div>
+      </div>
+      ${tab === 'icons' ? `<input class="pick-search" type="search" placeholder="Search icons… (e.g. plane, home, coffee)" value="${esc(q)}">
+        <div class="pick-body">${PICON_GROUPS.map(([g, set]) => {
+          const names = Object.keys(set).filter(n => !q || n.includes(q) || g.toLowerCase().includes(q));
+          return names.length ? `<div class="pick-group">${esc(g)}</div><div class="icon-grid">${names.map(n =>
+            `<button type="button" class="icon-cell ${current === 'i:' + n ? 'on' : ''}" data-ip="i:${n}" title="${n}" style="color:${color}">${piconSVG(n)}</button>`).join('')}</div>` : '';
+        }).join('') || '<div class="empty sm">No icon matches that word.</div>'}</div>`
+      : `<div class="emoji-row"><input class="emoji-input" maxlength="16" placeholder="Type or paste any emoji" value="${current && current.startsWith('e:') ? esc(current.slice(2)) : ''}"><button type="button" class="btn btn-sm btn-primary" data-ip-use>Use</button></div>
+        <div class="pick-body"><div class="pick-group">Suggestions</div><div class="icon-grid">${EMOJI_SUGGEST.map(e =>
+          `<button type="button" class="icon-cell emoji ${current === 'e:' + e ? 'on' : ''}" data-ip="e:${e}">${e}</button>`).join('')}</div></div>`}`;
+    const s = pop.querySelector('.pick-search');
+    if (s) { s.addEventListener('input', () => { const pos = s.value.length; draw(); const ns = pop.querySelector('.pick-search'); ns.focus(); ns.setSelectionRange(pos, pos); }); }
+  };
+  draw();
+  const phone = window.innerWidth < 640;
+  if (phone) { document.body.classList.add('picking'); pop.classList.add('sheet'); }
+  else {
+    const r = anchor.getBoundingClientRect(), w = Math.min(360, window.innerWidth - 24);
+    pop.style.width = w + 'px';
+    pop.style.left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12) + 'px';
+    const below = window.innerHeight - r.bottom - 12;
+    if (below >= 300 || below >= r.top) { pop.style.top = (r.bottom + 6) + 'px'; pop.style.maxHeight = Math.max(240, below - 6) + 'px'; }
+    else { pop.style.bottom = (window.innerHeight - r.top + 6) + 'px'; pop.style.maxHeight = Math.max(240, r.top - 18) + 'px'; }
+  }
+  const choose = v => { closePicker(); onPick(v); };
+  pop.addEventListener('click', e => {
+    e.stopPropagation();
+    if (e.target.closest('[data-pick-close]')) { closePicker(); return; }
+    const t = e.target.closest('[data-ip-tab]'); if (t) { tab = t.dataset.ipTab; draw(); return; }
+    if (e.target.closest('[data-ip-remove]')) { choose(''); return; }
+    if (e.target.closest('[data-ip-use]')) { const v = pop.querySelector('.emoji-input').value.trim(); if (v) choose('e:' + v); return; }
+    const b = e.target.closest('[data-ip]'); if (b) choose(b.dataset.ip);
+  });
+  pop.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.classList.contains('emoji-input')) { e.preventDefault(); const v = e.target.value.trim(); if (v) choose('e:' + v); }
+  });
 }
 
 /* ---------------- Small UI pieces ---------------- */
@@ -412,7 +557,12 @@ function initials(name) {
   const w = String(name || '?').trim().split(/\s+/).filter(x => /^[\p{L}\p{N}]/u.test(x));
   return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase();
 }
-const avatar = (p, size = '') => `<span class="av ${size}" style="background:${pocketColor(p)}">${esc(initials(p.name))}</span>`;
+const avatar = (p, size = '') => {
+  const ic = String(p.icon || '');
+  if (ic.startsWith('i:') && PICONS[ic.slice(2)]) return `<span class="av av-icon ${size}" style="background:${pocketColor(p)}">${piconSVG(ic.slice(2))}</span>`;
+  if (ic.startsWith('e:')) return `<span class="av av-emoji ${size}">${esc(ic.slice(2))}</span>`;
+  return `<span class="av ${size}" style="background:${pocketColor(p)}">${esc(initials(p.name))}</span>`;
+};
 const schedBadge = s => `<span class="av" style="background:${s.kind === 'income' ? COLORS[0] : (s.tag === 'Subscription' ? COLORS[4] : COLORS[2])}">${esc(initials(s.title))}</span>`;
 
 // Dropdown with an "Add new…" choice that reveals a text box
@@ -1024,7 +1174,7 @@ function pagePocket(id) {
   const usual = p.payDay ? ` <span class="chip light">${isInc ? 'Usual top-up' : 'Usual payment'}: ${dayText(p.payDay)}</span>` : '';
   const sch = S.schedules.filter(s => s.pocket === id || s.to === id);
 
-  let h = pageHead(avatar(p, 'lg'), esc(p.name),
+  let h = pageHead(p.archived ? avatar(p, 'lg') : `<button class="icon-pick-btn" data-action="pickIcon" data-id="${id}" title="Change icon">${avatar(p, 'lg')}</button>`, esc(p.name),
     `<span class="chip light">${esc(p.tag || 'Untagged')}</span> <span class="chip light">${isInc ? 'Income pocket' : 'Expense pocket'}</span>${usual}${p.desc ? ` &nbsp;${esc(p.desc)}` : ''}`,
     p.archived ? `<button class="btn btn-primary" data-action="restorePocket" data-id="${id}">Restore pocket</button>` :
     `<button class="btn btn-primary" data-action="transfer" data-from="${id}">⇄ Transfer / reduce</button>
@@ -1425,7 +1575,7 @@ function pocketModal(p, presetType = 'income') {
     <div class="row2">
       ${field('Pocket type', `<select name="type" ${hasTx ? 'disabled' : ''}>${opt('income', 'Income / savings', p.type)}${opt('expense', 'Expense / budget', p.type)}</select>`,
         hasTx ? 'Locked because this pocket already has records.' : '')}
-      ${field('Color', `<div class="color-pick"><span class="swatch-prev" style="background:${pocketColor(p)}"></span><select name="color">${COLORS.map((c, i) => opt(c, COLOR_NAMES[i], pocketColor(p))).join('')}</select></div>`)}
+      ${field('Icon & color', `<div class="icon-color"><button type="button" class="icon-pick-btn" id="iconPickBtn" title="Choose an icon">${avatar(p)}</button><input type="hidden" name="icon" value="${esc(p.icon || '')}"><select name="color">${COLORS.map((c, i) => opt(c, COLOR_NAMES[i], pocketColor(p))).join('')}</select></div>`, 'Tap the icon to pick one.')}
     </div>
     ${field('Pocket name', `<input name="name" value="${esc(p.name)}" placeholder="e.g. Japan Trip 2027, Monthly Bills, Subscriptions">`)}
     <div class="row2">
@@ -1447,7 +1597,7 @@ function pocketModal(p, presetType = 'income') {
       if (!fd.name.trim()) { toast('Give your pocket a name', 'err'); return false; }
       const tag = pickOther(fd, 'tag');
       const data = {
-        type, name: fd.name.trim(), color: fd.color || pocketColor(p), tag: ensureTag(type, tag), desc: fd.desc.trim(),
+        type, name: fd.name.trim(), color: fd.color || pocketColor(p), icon: fd.icon || '', tag: ensureTag(type, tag), desc: fd.desc.trim(),
         payDay: fd.payDay === 'last' ? 'last' : (fd.payDay ? Number(fd.payDay) : ''),
         target: type === 'income' ? parseMoney(fd.target) || 0 : 0,
         start: type === 'income' ? fd.start || '' : '', end: type === 'income' ? fd.end || '' : '',
@@ -1470,7 +1620,13 @@ function pocketModal(p, presetType = 'income') {
     enhanceSelects(form);
     sync();
   });
-  form.color.addEventListener('change', () => { form.querySelector('.swatch-prev').style.background = form.color.value; });
+  const preview = () => { $('#iconPickBtn').innerHTML = avatar({name: form.name.value || 'Pocket', color: form.color.value, icon: form.icon.value}); };
+  form.color.addEventListener('change', preview);
+  form.name.addEventListener('input', preview);
+  $('#iconPickBtn').addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    openIconPicker(e.currentTarget, form.icon.value, form.color.value, v => { form.icon.value = v; preview(); });
+  });
   sync();
 }
 
@@ -1730,7 +1886,7 @@ const cloudHooks = {
     if (hasContent() && before !== JSON.stringify(data)) {
       try { localStorage.setItem(KEY + '-before-sync', JSON.stringify(S)); } catch (e) { /* ignore */ }
     }
-    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs};
+    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs, navCollapsed: S.navCollapsed};
     S = Object.assign(defaults(), data.meta || {}, {txns: data.txns || []}, device, {syncUid: uid, unsynced: false});
     migrate();
     S.cloudHash = hashStr(JSON.stringify(dataOf()));
@@ -1742,7 +1898,7 @@ const cloudHooks = {
     const canon = d => JSON.stringify({meta: d.meta, txns: [...d.txns].sort((a, b) => a.id < b.id ? -1 : 1)});
     const incoming = JSON.stringify(data);
     if (canon(data) === canon(dataOf())) return;
-    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs, syncUid: S.syncUid};
+    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs, navCollapsed: S.navCollapsed, syncUid: S.syncUid};
     S = Object.assign(defaults(), data.meta || {}, {txns: data.txns || []}, device, {unsynced: false});
     migrate();
     S.cloudHash = hashStr(incoming);
@@ -1939,6 +2095,14 @@ const A = {
   payNow: d => { const s = SCH(d.id); if (!s) return; s.kind === 'income' ? incomeModal(null, {schedule: s}) : expenseModal(null, {schedule: s}); },
   skipSched: d => { const s = SCH(d.id); if (!s) return; const was = s.nextDue; advanceSchedule(s); save(); render(); toast(`Skipped ${fmtDM(was)} — next on ${fmtDate(s.nextDue)}`); },
   pauseSched: d => { const s = SCH(d.id); if (!s) return; s.active = s.active === false; save(); render(); toast(s.active ? `${s.title} resumed` : `${s.title} paused`); },
+  pickIcon: (d, el) => {
+    const p = P(d.id); if (!p) return;
+    openIconPicker(el, p.icon || '', pocketColor(p), v => { P(d.id).icon = v; save(); render(); toast(v ? 'Icon updated' : 'Icon removed'); });
+  },
+  toggleNavGroup: d => {
+    S.navCollapsed = Object.assign({}, S.navCollapsed, {[d.type]: !(S.navCollapsed || {})[d.type]});
+    saveLocal(); renderNav(route());
+  },
   setTab: d => {
     S.tabs = Object.assign({}, S.tabs, {[d.page]: d.tab});
     saveLocal(); render();
@@ -1981,7 +2145,7 @@ const A = {
     confirmModal('Sign out?', `Your data stays safe in your account. For privacy, this device's copy is removed and the login page appears — sign in again anytime to get everything back.${pending ? '<br><br><b>Some changes haven\'t reached the cloud yet</b> (no internet). Connect first, or they will be lost.' : ''}`, 'Sign out', async () => {
       toast('Signing out…');
       await CLOUD.signOut();
-      const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs};
+      const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs, navCollapsed: S.navCollapsed};
       S = Object.assign(defaults(), device);
       saveLocal();
       try { localStorage.removeItem(KEY + '-before-sync'); } catch (e) { /* ignore */ }
@@ -2036,11 +2200,21 @@ function renderNav(r) {
   const badge = $('#navDue'); if (badge) { badge.textContent = due; badge.hidden = !due; }
   const group = (label, type) => {
     const ps = activePockets(type);
-    return `<div class="nav-section">${label}</div><div class="nav-pockets">${ps.length ? ps.map(p =>
+    const closed = !!(S.navCollapsed || {})[type];
+    return `<button type="button" class="nav-section nav-toggle ${closed ? 'closed' : ''}" data-action="toggleNavGroup" data-type="${type}" aria-expanded="${!closed}">
+        <span>${label}</span><span class="nav-count">${ps.length}</span><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      ${closed ? '' : `<div class="nav-pockets">${ps.length ? ps.map(p =>
       `<a href="#/pocket/${p.id}" class="${curPocket?.id === p.id ? 'active' : ''}">${avatar(p, 'sm')}<span class="np-name">${esc(p.name)}</span><span class="np-bal amt">${short(bal(p.id))}</span></a>`).join('')
-      : `<div class="nav-empty">No pockets yet</div>`}</div>`;
+      : `<div class="nav-empty">No pockets yet</div>`}</div>`}`;
   };
-  $('#navPockets').innerHTML = group('Income pockets', 'income') + group('Expense pockets', 'expense');
+  const np = $('#navPockets');
+  np.innerHTML = group('Income pockets', 'income') + group('Expense pockets', 'expense');
+  const fades = () => {
+    np.classList.toggle('fade-top', np.scrollTop > 2);
+    np.classList.toggle('fade-bot', np.scrollTop + np.clientHeight < np.scrollHeight - 2);
+  };
+  if (!np.dataset.wired) { np.dataset.wired = '1'; np.addEventListener('scroll', fades, {passive: true}); window.addEventListener('resize', fades); }
+  fades();
   $('#brandSub').textContent = `${S.name}'s money space`;
   const st = CLOUD.status();
   let acct = $('#acctBox');

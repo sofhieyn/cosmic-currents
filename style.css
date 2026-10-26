@@ -692,3 +692,56 @@ body.locked .app,body.locked .scrim{display:none}
 @keyframes lgWave{0%,100%{transform:translateX(0)}50%{transform:translateX(-2.2px)}}
 body.still .logo *{animation-play-state:paused!important}
 @media (prefers-reduced-motion:reduce){.logo *{animation:none!important}}
+
+/* =========================================================
+   v10 — Saturn logo, seamless sidebar, pocket icons
+   ========================================================= */
+/* Logo motion: the ring sways, the sparkle twinkles */
+.logo.moving .lg-ring,.logo.moving .lg-ring-back{transform-origin:32px 32px;transform-box:view-box;animation:lgSway 6s ease-in-out infinite}
+.logo.moving .lg-spark{transform-origin:53px 12.3px;transform-box:view-box;animation:lgTwinkle 2.8s ease-in-out infinite}
+@keyframes lgSway{0%,100%{transform:rotate(0)}50%{transform:rotate(4deg)}}
+@keyframes lgTwinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.6)}}
+.auth-logo .logo{filter:drop-shadow(0 4px 10px rgba(23,105,170,.25))}
+
+/* Seamless sidebar: a little wider, no scrollbar box, soft fade at the edges */
+.app{grid-template-columns:268px 1fr}
+.sidebar{scrollbar-width:none}
+.sidebar::-webkit-scrollbar{display:none}
+#navPockets{scrollbar-width:none;overscroll-behavior:contain;scroll-behavior:smooth;margin:0 -12px;padding:0 12px}
+#navPockets::-webkit-scrollbar{display:none}
+#navPockets.fade-bot{-webkit-mask-image:linear-gradient(#000 calc(100% - 34px),transparent);mask-image:linear-gradient(#000 calc(100% - 34px),transparent)}
+#navPockets.fade-top{-webkit-mask-image:linear-gradient(transparent,#000 26px);mask-image:linear-gradient(transparent,#000 26px)}
+#navPockets.fade-top.fade-bot{-webkit-mask-image:linear-gradient(transparent,#000 26px,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(transparent,#000 26px,#000 calc(100% - 34px),transparent)}
+.nav-toggle{display:flex;align-items:center;gap:6px;width:100%;border:0;background:transparent;font-family:inherit;cursor:pointer;text-align:left;border-radius:var(--r-sm)}
+.nav-toggle:hover{color:var(--text);background:rgba(10,37,64,.04)}
+.nav-toggle span:first-child{flex:1}
+.nav-count{font-size:10.5px;font-weight:600;background:rgba(10,37,64,.07);border-radius:8px;padding:0 6px;letter-spacing:0}
+.nav-toggle .chev{transition:transform .2s ease}
+.nav-toggle.closed .chev{transform:rotate(-90deg)}
+.nav-pockets{animation:fadeUp .2s ease}
+.nav-pockets a{padding:5px 10px}
+@media (max-width:820px){ .sidebar{width:288px} }
+
+/* Pocket icons */
+.av-icon svg{width:62%;height:62%;color:#fff}
+.av-emoji{background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px var(--line-strong);font-size:18px;line-height:1}
+.av-emoji.sm{font-size:12px}
+.av-emoji.lg{font-size:30px}
+.icon-pick-btn{border:0;background:transparent;padding:0;cursor:pointer;border-radius:var(--r);display:inline-grid;place-items:center;transition:transform .15s}
+.icon-pick-btn:hover{transform:scale(1.06)}
+.icon-pick-btn:hover .av{box-shadow:0 0 0 3px rgba(58,155,213,.35)}
+.icon-color{display:flex;align-items:center;gap:10px}
+.icon-color .icon-pick-btn .av{width:40px;height:40px}
+.icon-pop .pick-head{gap:8px}
+.icon-tabs{display:flex;gap:2px}
+.icon-tabs button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--muted);padding:5px 10px;border-radius:var(--r-sm);cursor:pointer}
+.icon-tabs button.on{background:rgba(23,105,170,.12);color:var(--deep);font-weight:600}
+.icon-head-r{display:flex;align-items:center;gap:4px}
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:4px}
+.icon-cell{display:grid;place-items:center;aspect-ratio:1;border:0;background:transparent;border-radius:var(--r-sm);cursor:pointer;padding:7px}
+.icon-cell svg{width:100%;height:100%}
+.icon-cell:hover{background:rgba(23,105,170,.10)}
+.icon-cell.on{background:rgba(23,105,170,.18);box-shadow:inset 0 0 0 1.5px var(--ocean)}
+.icon-cell.emoji{font-size:20px;padding:4px}
+.emoji-row{display:flex;gap:8px;margin:0 10px 8px}
+.emoji-row input{flex:1}

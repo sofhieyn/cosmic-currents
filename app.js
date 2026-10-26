@@ -56,7 +56,8 @@ const IC = {
   refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
   skip: '<path d="M6 5l8 7-8 7zM17 5v14"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
-  play: '<path d="M7 5l12 7-12 7z"/>'
+  play: '<path d="M7 5l12 7-12 7z"/>',
+  logout: '<path d="M14 4h5v16h-5M10 17l5-5-5-5M15 12H3"/>'
 };
 const icon = (k, s = 15) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
 
@@ -168,10 +169,10 @@ function save() {
 }
 
 const ui = {
-  home: {range: 'month', anchor: today(), pOff: 0},
-  inc:  {range: 'all',   anchor: today(), pOff: 0, tag: '', source: '', pocket: ''},
-  exp:  {range: 'month', anchor: today(), pOff: 0, tag: '', pocket: '', method: ''},
-  pk:   {range: 'all',   anchor: today(), pOff: 0},
+  home: {range: 'month', anchor: today(), pOff: 0, q: '', type: ''},
+  inc:  {range: 'all',   anchor: today(), pOff: 0, tag: '', source: '', pocket: '', q: '', type: ''},
+  exp:  {range: 'month', anchor: today(), pOff: 0, tag: '', pocket: '', method: '', q: '', type: ''},
+  pk:   {range: 'all',   anchor: today(), pOff: 0, q: '', type: ''},
   rec:  {range: 'all',   anchor: today(), pOff: 0, q: '', type: ''},
   typedDone: false, lastRoute: ''
 };
@@ -350,6 +351,31 @@ function filterBar(key, extra = '') {
   return `<div class="card filters"><div class="filter-row">
     <select class="range-select" data-range-for="${key}" aria-label="Period">${Object.entries(RANGE_LABEL).map(([k, v]) => opt(k, v, f.range)).join('')}</select>
     ${row}${extra}</div></div>`;
+}
+
+/* ---------------- Logo ---------------- */
+// Saturn rising over layered waves, in the app's blues. Animated softly.
+const logoSVG = (size = 36, still = false) => `<svg class="logo${still ? '' : ' moving'}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">
+  <defs><linearGradient id="lgPlanet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cdeaf8"/><stop offset=".5" stop-color="#5aa9d6"/><stop offset="1" stop-color="#1769aa"/></linearGradient></defs>
+  <g class="lg-planet">
+    <g transform="rotate(-18 32 25)">
+      <path d="M8.5 25 A23.5 6.8 0 0 1 55.5 25" fill="none" stroke="#7fbde3" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="32" cy="25" r="11.5" fill="url(#lgPlanet)"/>
+      <path d="M8.5 25 A23.5 6.8 0 0 0 55.5 25" fill="none" stroke="#0f3d66" stroke-width="2.8" stroke-linecap="round"/>
+    </g>
+  </g>
+  <path class="lg-w1" fill="#3a9bd5" d="M2 42 C14 34 24 35 33 40 C42 45 52 44 62 36 C53 47 42 50 32 46 C23 42 13 40 2 42 Z"/>
+  <path class="lg-w2" fill="#1769aa" d="M6 50 C17 43 26 44 35 48.5 C44 53 53 52 62 45 C54 55 44 58 34 54 C25 50 16 48 6 50 Z"/>
+  <path class="lg-w3" fill="#0f3d66" d="M14 57 C23 53.5 31 54 39 57 C47 60 54 59.5 60 56 C54 62.5 46 63.5 38 61 C30 58.5 22 58 14 57 Z"/>
+</svg>`;
+function applyLogo() {
+  document.querySelectorAll('.sidebar .brand-logo').forEach(el => { el.innerHTML = logoSVG(40); el.classList.add('has-logo'); });
+  const tb = $('.topbar-brand'); if (tb) tb.innerHTML = `${logoSVG(28)}<span>Cosmic Currents</span>`;
+  // Browser tab icon
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+  link.type = 'image/svg+xml';
+  link.href = 'data:image/svg+xml,' + encodeURIComponent(logoSVG(64, true).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
 }
 
 /* ---------------- Small UI pieces ---------------- */
@@ -642,17 +668,52 @@ function txTable(list, o = {}) {
 }
 
 /* =========================================================
-   PAGES
+   PAGES — each page is split into tabs so you only see one
+   part at a time (less scrolling). The chosen tab is remembered
+   on this device.
    ========================================================= */
+function curTab(page, tabs) {
+  const v = (S.tabs || {})[page];
+  return tabs.some(t => t.id === v) ? v : tabs[0].id;
+}
+function tabsBar(page, tabs, cur) {
+  return `<div class="tabs" role="tablist" aria-label="Sections">${tabs.map(t =>
+    `<button role="tab" aria-selected="${t.id === cur}" class="${t.id === cur ? 'on' : ''}" data-action="setTab" data-page="${page}" data-tab="${t.id}">${esc(t.label)}${t.badge ? `<span class="tab-badge ${t.warn ? 'warn' : ''}">${t.badge}</span>` : ''}</button>`).join('')}</div>`;
+}
+// Search across everything a record shows
+function matchQ(t, q) {
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return true;
+  return [t.activity, t.note, t.recipient, t.method, t.sourceId ? srcName(t.sourceId) : '', t.from ? accName(t.from) : '', t.to ? accName(t.to) : '',
+    t.type === 'expense' ? txnTag(t) : '', TYPE_LABEL[t.type], String(t.amount), fmtDate(t.date)].join(' ').toLowerCase().includes(q);
+}
+const searchBox = (key, ph) => `<input class="search-box" type="search" data-search="${key}" id="search-${key}" placeholder="${esc(ph)}" value="${esc(ui[key].q || '')}" aria-label="Search records">`;
+const typeSelect = (key, types) => `<select data-filter="${key}.type" aria-label="Type"><option value="">All types</option>${types.map(([k, v]) => opt(k, v, ui[key].type)).join('')}</select>`;
+const resultLine = (list, extra = '') => `<div class="result-line"><span>${list.length} record${list.length === 1 ? '' : 's'}</span>${extra}</div>`;
+
+/* ---------------- Home ---------------- */
+function homeAlerts() {
+  const tm = thisMonth(), out = [];
+  const overdue = upcoming(-1);
+  if (overdue.length) out.push(`<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${overdue.length} payment${overdue.length > 1 ? 's are' : ' is'} overdue</b>: ${overdue.slice(0, 3).map(s => esc(s.title)).join(', ')}${overdue.length > 3 ? '…' : ''}.</div><a class="btn btn-sm" href="#/schedules">Review</a></div>`);
+  activePockets('expense').filter(p => p.budget && spentIn(p.id, tm) > p.budget).forEach(p =>
+    out.push(`<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> is over its monthly budget: ${amt(spentIn(p.id, tm))} of ${amt(p.budget)}.</div><a class="btn btn-sm" href="#/pocket/${p.id}">Open</a></div>`));
+  activePockets('expense').filter(p => bal(p.id) >= 0 && dueFor(p.id).short).forEach(p => {
+    const d = dueFor(p.id);
+    out.push(`<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> has ${amt(bal(p.id))}, but ${amt(d.total)} is due in the next 30 days.</div><button class="btn btn-sm" data-action="transfer" data-from="general" data-to="${p.id}">Top up</button></div>`);
+  });
+  activePockets('expense').filter(p => bal(p.id) < 0).forEach(p =>
+    out.push(`<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> balance is below zero (${amt(bal(p.id))}). Fund it from your income.</div><button class="btn btn-sm" data-action="transfer" data-from="general" data-to="${p.id}">Fund</button></div>`));
+  if (bal('general') > 0 && activePockets().length) out.push(`<div class="callout"><span class="callout-dot"></span><div class="grow">You have ${amt(bal('general'))} unallocated in General Balance. Give it a job!</div><button class="btn btn-sm btn-primary" data-action="transfer" data-from="general">Allocate</button></div>`);
+  return out;
+}
 function pageHome() {
   const f = ui.home, r = rangeOf(f), T = S.txns;
-  const inc = sum(T.filter(t => t.type === 'income' && inR(t.date, r)));
-  const exp = sum(T.filter(t => t.type === 'expense' && inR(t.date, r)));
-  const net = inc - exp, rate = inc ? Math.round(net / inc * 100) : 0;
-  const savings = savingsBalance(), budget = expenseBalance();
   const now = new Date(), hr = now.getHours();
   const greet = hr < 11 ? 'Good morning' : hr < 15 ? 'Good afternoon' : hr < 19 ? 'Good evening' : 'Good night';
   const tip = TIPS[Math.max(0, S.welcomeIdx) % TIPS.length];
+  const alerts = homeAlerts();
+  const warnCount = alerts.filter(a => a.includes('callout warn')).length;
 
   let h = `<section class="card hero">
     <div class="hero-top"><span class="muted">${greet} · ${now.toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}</span>
@@ -668,86 +729,102 @@ function pageHome() {
     </div>
   </div></div></section>`;
 
-  if (!S.pockets.length && !T.length) {
-    h += `<div class="card mt"><div class="card-title">Start here</div>
-      <ol class="steps">
-        <li><div><b>Name your fund sources</b> — your office, freelance clients, side jobs (Settings).</div></li>
-        <li><div><b>Create pockets</b> — income pockets for savings goals, expense pockets for monthly budgets.</div></li>
-        <li><div><b>Record income</b> after every payday, then allocate it from General Balance to pockets.</div></li>
-        <li><div><b>Add your subscriptions and bills</b> in Bills &amp; Paydays so you never miss a due date.</div></li>
-      </ol>
-      <div class="page-actions" style="margin:0">
-        <button class="btn btn-primary" data-action="newPocket" data-type="income">＋ Create first pocket</button>
-        <a class="btn" href="#/settings">Set fund sources</a>
-        <a class="btn btn-ghost" href="#/schedules">Add subscriptions</a>
-      </div></div>`;
+  const tabs = [
+    {id: 'overview', label: 'Overview', badge: warnCount || '', warn: true},
+    {id: 'compare', label: 'Income vs Expense'},
+    {id: 'pockets', label: 'Pockets'},
+    {id: 'activity', label: 'Activity'}
+  ];
+  const tab = curTab('home', tabs);
+  h += tabsBar('home', tabs, tab);
+
+  if (tab === 'overview') {
+    if (!S.pockets.length && !T.length) {
+      h += `<div class="card"><div class="card-title">Start here</div>
+        <ol class="steps">
+          <li><div><b>Name your fund sources</b> — your office, freelance clients, side jobs (Settings).</div></li>
+          <li><div><b>Create pockets</b> — income pockets for savings goals, expense pockets for monthly budgets.</div></li>
+          <li><div><b>Record income</b> after every payday, then allocate it from General Balance to pockets.</div></li>
+          <li><div><b>Add your subscriptions and bills</b> in Bills &amp; Paydays so you never miss a due date.</div></li>
+        </ol>
+        <div class="page-actions" style="margin:0">
+          <button class="btn btn-primary" data-action="newPocket" data-type="income">＋ Create first pocket</button>
+          <a class="btn" href="#/settings">Set fund sources</a>
+          <a class="btn btn-ghost" href="#/schedules">Add subscriptions</a>
+        </div></div><div class="mt"></div>`;
+    }
+    const savings = savingsBalance(), budget = expenseBalance();
+    h += `<div class="grid g4">
+      ${stat('Net worth', amt(savings + budget), 'Savings + expense budget')}
+      ${stat('Savings balance', amt(savings), `General ${amt(bal('general'))}`)}
+      ${stat('Expense budget left', amt(budget), `${activePockets('expense').length} expense pockets`)}
+      ${stat('Lifetime income', amt(totalIncome(), 'pos'), 'Limitless — keeps growing')}
+    </div>${alerts.join('')}`;
+    const soon = upcoming(14).filter(s => daysBetween(today(), s.nextDue) >= 0).slice(0, 5);
+    h += sectionTitle('Coming up · next 14 days', `<a class="link-light" href="#/schedules">All bills &amp; paydays →</a>`) +
+      `<div class="card">${schedList(soon, 'Nothing due in the next two weeks. Add subscriptions and bills in Bills &amp; Paydays.', true)}</div>`;
   }
 
-  h += `<div class="grid g4 mt">
-    ${stat('Net worth', amt(savings + budget), 'Savings + expense budget')}
-    ${stat('Savings balance', amt(savings), `General ${amt(bal('general'))}`)}
-    ${stat('Expense budget left', amt(budget), `${activePockets('expense').length} expense pockets`)}
-    ${stat('Lifetime income', amt(totalIncome(), 'pos'), 'Limitless — keeps growing')}
-  </div>`;
+  if (tab === 'compare') {
+    const inc = sum(T.filter(t => t.type === 'income' && inR(t.date, r)));
+    const exp = sum(T.filter(t => t.type === 'expense' && inR(t.date, r)));
+    const net = inc - exp, rate = inc ? Math.round(net / inc * 100) : 0, tot = inc + exp;
+    h += filterBar('home') + `<div class="grid g3 mt">
+      ${stat('Income', amt(inc, 'pos'), rangeLabel(r))}
+      ${stat('Expense', amt(exp), rangeLabel(r))}
+      ${stat(net >= 0 ? 'Saved' : 'Overspent', amt(net, net >= 0 ? 'pos' : 'over'), inc ? `Savings rate ${rate}%` : 'No income in this range')}
+    </div>
+    <div class="card mt"><div class="card-title"><span>Comparison</span><span class="muted sm">${tot ? Math.round(inc / tot * 100) : 0}% income · ${tot ? Math.round(exp / tot * 100) : 0}% expense</span></div>
+      <div class="split"><div class="i" style="width:${tot ? inc / tot * 100 : 50}%"></div><div class="e" style="width:${tot ? exp / tot * 100 : 50}%"></div></div>
+      ${legend([{name: 'Income', cls: 'bi'}, {name: 'Expense', cls: 'be'}])}</div>
+    <div class="grid g2 mt">
+      <div class="card"><div class="card-title">Last 6 months</div>${monthlyChart([
+        {name: 'Income', cls: 'bi', pred: t => t.type === 'income'},
+        {name: 'Expense', cls: 'be', pred: t => t.type === 'expense'}])}</div>
+      <div class="card"><div class="card-title"><span>Expense by tag</span><span class="muted sm">${rangeLabel(r)}</span></div>
+        ${hbars(groupBy(T.filter(t => t.type === 'expense' && inR(t.date, r)), txnTag).slice(0, 7).map(x => ({...x, cls: 'alt'})), 'No expenses in this range.')}</div>
+    </div>`;
+  }
 
-  // alerts
-  const tm = thisMonth();
-  const overdue = upcoming(-1);
-  if (overdue.length) h += `<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${overdue.length} payment${overdue.length > 1 ? 's are' : ' is'} overdue</b>: ${overdue.slice(0, 3).map(s => esc(s.title)).join(', ')}${overdue.length > 3 ? '…' : ''}.</div><a class="btn btn-sm" href="#/schedules">Review</a></div>`;
-  activePockets('expense').filter(p => p.budget && spentIn(p.id, tm) > p.budget).forEach(p =>
-    h += `<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> is over its monthly budget: ${amt(spentIn(p.id, tm))} of ${amt(p.budget)}.</div><a class="btn btn-sm" href="#/pocket/${p.id}">Open</a></div>`);
-  activePockets('expense').filter(p => bal(p.id) >= 0 && dueFor(p.id).short).forEach(p => {
-    const d = dueFor(p.id);
-    h += `<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> has ${amt(bal(p.id))}, but ${amt(d.total)} is due in the next 30 days.</div><button class="btn btn-sm" data-action="transfer" data-from="general" data-to="${p.id}">Top up</button></div>`;
-  });
-  activePockets('expense').filter(p => bal(p.id) < 0).forEach(p =>
-    h += `<div class="callout warn"><span class="callout-dot"></span><div class="grow"><b>${esc(p.name)}</b> balance is below zero (${amt(bal(p.id))}). Fund it from your income.</div><button class="btn btn-sm" data-action="transfer" data-from="general" data-to="${p.id}">Fund</button></div>`);
-  if (bal('general') > 0 && activePockets().length) h += `<div class="callout"><span class="callout-dot"></span><div class="grow">You have ${amt(bal('general'))} unallocated in General Balance. Give it a job!</div><button class="btn btn-sm btn-primary" data-action="transfer" data-from="general">Allocate</button></div>`;
+  if (tab === 'pockets') {
+    const byBal = activePockets().map(p => ({label: p.name, value: bal(p.id), href: `#/pocket/${p.id}`, cls: p.type === 'expense' ? 'alt' : ''}))
+      .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+    const saved = activePockets('income').map(p => ({label: p.name, value: sum(T.filter(t => t.to === p.id && inR(t.date, r))), href: `#/pocket/${p.id}`}))
+      .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+    const spend = activePockets('expense').map(p => ({label: p.name, value: spentIn(p.id, r), href: `#/pocket/${p.id}`, cls: 'alt'}))
+      .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+    h += filterBar('home') + `<div class="grid g3 mt">
+      <div class="card"><div class="card-title">Biggest balances</div>${hbars(byBal, 'No pocket balances yet.')}</div>
+      <div class="card"><div class="card-title"><span>Most saved</span><span class="muted sm">${RANGE_LABEL[f.range]}</span></div>${hbars(saved, 'Nothing saved in this range.')}</div>
+      <div class="card"><div class="card-title"><span>Biggest spending</span><span class="muted sm">${RANGE_LABEL[f.range]}</span></div>${hbars(spend, 'No spending in this range.')}</div>
+    </div>`;
+  }
 
-  const soon = upcoming(14).filter(s => daysBetween(today(), s.nextDue) >= 0).slice(0, 5);
-  h += sectionTitle('Coming up · next 14 days', `<a class="link-light" href="#/schedules">All bills &amp; paydays →</a>`) +
-    `<div class="card">${schedList(soon, 'Nothing due in the next two weeks. Add subscriptions and bills in Bills &amp; Paydays.', true)}</div>`;
-
-  h += sectionTitle('Income vs expense') + filterBar('home');
-  h += `<div class="grid g3 mt">
-    ${stat('Income', amt(inc, 'pos'), rangeLabel(r))}
-    ${stat('Expense', amt(exp), rangeLabel(r))}
-    ${stat(net >= 0 ? 'Saved' : 'Overspent', amt(net, net >= 0 ? 'pos' : 'over'), inc ? `Savings rate ${rate}%` : 'No income in this range')}
-  </div>`;
-  const tot = inc + exp;
-  h += `<div class="card mt"><div class="card-title"><span>Comparison</span><span class="muted sm">${tot ? Math.round(inc / tot * 100) : 0}% income · ${tot ? Math.round(exp / tot * 100) : 0}% expense</span></div>
-    <div class="split"><div class="i" style="width:${tot ? inc / tot * 100 : 50}%"></div><div class="e" style="width:${tot ? exp / tot * 100 : 50}%"></div></div>
-    ${legend([{name: 'Income', cls: 'bi'}, {name: 'Expense', cls: 'be'}])}</div>`;
-
-  h += `<div class="grid g2 mt">
-    <div class="card"><div class="card-title">Last 6 months</div>${monthlyChart([
-      {name: 'Income', cls: 'bi', pred: t => t.type === 'income'},
-      {name: 'Expense', cls: 'be', pred: t => t.type === 'expense'}])}</div>
-    <div class="card"><div class="card-title"><span>Expense by tag</span><span class="muted sm">${rangeLabel(r)}</span></div>
-      ${hbars(groupBy(T.filter(t => t.type === 'expense' && inR(t.date, r)), txnTag).slice(0, 7).map(x => ({...x, cls: 'alt'})), 'No expenses in this range.')}</div>
-  </div>`;
-
-  const byBal = activePockets().map(p => ({label: p.name, value: bal(p.id), href: `#/pocket/${p.id}`, cls: p.type === 'expense' ? 'alt' : ''}))
-    .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
-  const saved = activePockets('income').map(p => ({label: p.name, value: sum(T.filter(t => t.to === p.id && inR(t.date, r))), href: `#/pocket/${p.id}`}))
-    .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
-  const spend = activePockets('expense').map(p => ({label: p.name, value: spentIn(p.id, r), href: `#/pocket/${p.id}`, cls: 'alt'}))
-    .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
-  h += sectionTitle('Pocket leaderboard') + `<div class="grid g3">
-    <div class="card"><div class="card-title">Biggest balances</div>${hbars(byBal, 'No pocket balances yet.')}</div>
-    <div class="card"><div class="card-title"><span>Most saved</span><span class="muted sm">${RANGE_LABEL[f.range]}</span></div>${hbars(saved, 'Nothing saved in this range.')}</div>
-    <div class="card"><div class="card-title"><span>Biggest spending</span><span class="muted sm">${RANGE_LABEL[f.range]}</span></div>${hbars(spend, 'No spending in this range.')}</div>
-  </div>`;
-
-  h += sectionTitle('Recent activity', `<a class="link-light" href="#/records">View all →</a>`) + `<div class="card">${txTable(sorted(T).slice(0, 8))}</div>`;
+  if (tab === 'activity') {
+    const list = sorted(T.filter(t => matchQ(t, f.q) && (!f.type || t.type === f.type)));
+    h += `<div class="card filters"><div class="filter-row">${typeSelect('home', Object.entries(TYPE_LABEL))}${searchBox('home', 'Search title, notes, pocket, method…')}</div></div>
+      ${resultLine(list.slice(0, 20), list.length > 20 ? `<a href="#/records">See all ${list.length} in All Records →</a>` : '')}
+      <div class="card">${txTable(list.slice(0, 20))}</div>`;
+  }
   return h;
 }
 
+/* ---------------- Income ---------------- */
+function incomeRecords(f, r, withSearch) {
+  return sorted(S.txns.filter(t => {
+    if (!(t.type === 'income' || isIncomeAcc(t.to) || isIncomeAcc(t.from))) return false;
+    if (!inR(t.date, r)) return false;
+    if (f.source && t.sourceId !== f.source) return false;
+    if (f.pocket && t.to !== f.pocket && t.from !== f.pocket) return false;
+    if (f.tag && ![P(t.to)?.tag, P(t.from)?.tag].includes(f.tag)) return false;
+    if (withSearch && f.type && t.type !== f.type) return false;
+    if (withSearch && !matchQ(t, f.q)) return false;
+    return true;
+  }));
+}
 function pageIncome() {
   const f = ui.inc, r = rangeOf(f), per = S.period;
   const pockets = activePockets('income'), gen = bal('general');
-  const perInc = sum(S.txns.filter(t => t.type === 'income' && inR(t.date, [per.start, per.end])));
-  const daysLeft = Math.max(0, daysBetween(today(), per.end));
 
   let h = pageHead(icon('income', 22), 'Income',
     'Every wave of income washes ashore here first, then flows from your General Balance into the pockets where it belongs',
@@ -756,62 +833,76 @@ function pageIncome() {
      <button class="btn" data-action="newPocket" data-type="income">＋ New income pocket</button>
      <button class="btn btn-ghost light" data-action="newSched" data-kind="income">＋ Payday schedule</button>`);
 
-  h += `<div class="grid g4">
-    ${stat('Lifetime income', amt(totalIncome(), 'pos'), 'All-time, never resets')}
-    ${stat('Savings balance', amt(savingsBalance()), 'General + income pockets')}
-    ${stat('General balance', amt(gen), 'Not allocated yet', gen > 0 ? `<button class="btn btn-sm btn-primary mt-sm" data-action="transfer" data-from="general">Allocate →</button>` : '')}
-    ${stat('Sent to expense', amt(netToExpense(null)), 'Net budget moved to expense')}
-  </div>`;
+  const tabs = [
+    {id: 'overview', label: 'Overview'},
+    {id: 'pockets', label: 'Pockets', badge: pockets.length || ''},
+    {id: 'records', label: 'Records'},
+    {id: 'insights', label: 'Insights'}
+  ];
+  const tab = curTab('income', tabs);
+  h += tabsBar('income', tabs, tab);
 
-  const pays = upcoming(45, 'income').slice(0, 3);
-  h += `<div class="grid g2 mt">
-    <div class="card period-card"><div>
-      <div class="lbl">Income period</div>
-      <div class="period-range">${fmtDate(per.start)} – ${fmtDate(per.end)} ${per.repeat ? '<span class="chip">Repeats monthly</span>' : ''}</div>
-      <div class="muted sm">${daysLeft} days left · Income this period ${amt(perInc, 'pos')}</div>
-    </div><button class="btn btn-sm" data-action="editPeriod">Edit period</button></div>
-    <div class="card"><div class="card-title"><span>Next paydays</span><a class="sm" href="#/schedules">Manage</a></div>${schedList(pays, 'No payday scheduled yet. Add one to see when money is coming in.', true)}</div>
-  </div>`;
+  if (tab === 'overview') {
+    const perInc = sum(S.txns.filter(t => t.type === 'income' && inR(t.date, [per.start, per.end])));
+    const daysLeft = Math.max(0, daysBetween(today(), per.end));
+    const pays = upcoming(45, 'income').slice(0, 3);
+    h += `<div class="grid g4">
+      ${stat('Lifetime income', amt(totalIncome(), 'pos'), 'All-time, never resets')}
+      ${stat('Savings balance', amt(savingsBalance()), 'General + income pockets')}
+      ${stat('General balance', amt(gen), 'Not allocated yet', gen > 0 ? `<button class="btn btn-sm btn-primary mt-sm" data-action="transfer" data-from="general">Allocate →</button>` : '')}
+      ${stat('Sent to expense', amt(netToExpense(null)), 'Net budget moved to expense')}
+    </div>
+    <div class="grid g2 mt">
+      <div class="card period-card"><div>
+        <div class="lbl">Income period</div>
+        <div class="period-range">${fmtDate(per.start)} – ${fmtDate(per.end)} ${per.repeat ? '<span class="chip">Repeats monthly</span>' : ''}</div>
+        <div class="muted sm">${daysLeft} days left · Income this period ${amt(perInc, 'pos')}</div>
+      </div><button class="btn btn-sm" data-action="editPeriod">Edit period</button></div>
+      <div class="card"><div class="card-title"><span>Next paydays</span><a class="sm" href="#/schedules">Manage</a></div>${schedList(pays, 'No payday scheduled yet. Add one to see when money is coming in.', true)}</div>
+    </div>`;
+  }
 
-  h += sectionTitle(`Income pockets · ${pockets.length}`) + `<div class="grid pockets-grid">${pockets.map(pocketCard).join('')}
-    <button class="pocket card add-card" data-action="newPocket" data-type="income">＋ New income pocket</button></div>`;
+  if (tab === 'pockets') {
+    h += `<div class="grid pockets-grid">${pockets.map(pocketCard).join('')}
+      <button class="pocket card add-card" data-action="newPocket" data-type="income">＋ New income pocket</button></div>`;
+  }
 
-  const tags = [...new Set(pockets.map(p => p.tag).filter(Boolean))];
-  const extra = `<select data-filter="inc.tag" aria-label="Tag"><option value="">All tags</option>${tags.map(t => opt(t, t, f.tag)).join('')}</select>
-    <select data-filter="inc.source" aria-label="Fund source"><option value="">All fund sources</option>${S.sources.map(s => opt(s.id, s.name, f.source)).join('')}</select>
-    <select data-filter="inc.pocket" aria-label="Pocket"><option value="">All pockets</option>${opt('general', 'General Balance', f.pocket)}${pockets.map(p => opt(p.id, p.name, f.pocket)).join('')}</select>`;
-  h += sectionTitle('Records & insights') + filterBar('inc', extra);
-
-  const list = sorted(S.txns.filter(t => {
-    if (!(t.type === 'income' || isIncomeAcc(t.to) || isIncomeAcc(t.from))) return false;
-    if (!inR(t.date, r)) return false;
-    if (f.source && t.sourceId !== f.source) return false;
-    if (f.pocket && t.to !== f.pocket && t.from !== f.pocket) return false;
-    if (f.tag && ![P(t.to)?.tag, P(t.from)?.tag].includes(f.tag)) return false;
-    return true;
-  }));
-  const incList = list.filter(t => t.type === 'income');
-  const alloc = list.filter(t => t.type === 'transfer' && t.from === 'general');
-  h += `<div class="grid g3 mt">
-    ${stat('Income in range', amt(sum(incList), 'pos'), rangeLabel(r))}
-    ${stat('Allocated from General', amt(sum(alloc)), 'To income & expense pockets')}
-    ${stat('Records', list.length, 'Matching your filters')}
-  </div>
-  <div class="grid g2 mt">
-    <div class="card"><div class="card-title">By fund source</div>${hbars(groupBy(incList, t => srcName(t.sourceId)), 'No income in this range.')}</div>
-    <div class="card"><div class="card-title">Saved by pocket tag</div>${hbars(groupBy(list.filter(t => P(t.to)?.type === 'income'), t => P(t.to).tag || 'Untagged'), 'Nothing saved to pockets yet.')}</div>
-  </div>
-  <div class="card mt">${txTable(list, {side: 'income'})}</div>`;
+  if (tab === 'records' || tab === 'insights') {
+    const tags = [...new Set(pockets.map(p => p.tag).filter(Boolean))];
+    const selects = `<select data-filter="inc.tag" aria-label="Tag"><option value="">All tags</option>${tags.map(t => opt(t, t, f.tag)).join('')}</select>
+      <select data-filter="inc.source" aria-label="Fund source"><option value="">All fund sources</option>${S.sources.map(s => opt(s.id, s.name, f.source)).join('')}</select>
+      <select data-filter="inc.pocket" aria-label="Pocket"><option value="">All pockets</option>${opt('general', 'General Balance', f.pocket)}${pockets.map(p => opt(p.id, p.name, f.pocket)).join('')}</select>`;
+    if (tab === 'records') {
+      const list = incomeRecords(f, r, true);
+      h += filterBar('inc', selects + typeSelect('inc', [['income', 'Income'], ['transfer', 'Transfer'], ['withdraw', 'Withdraw']]) + searchBox('inc', 'Search title, notes, source, pocket…')) +
+        resultLine(list, `<span>In ${amt(sum(list.filter(t => t.type === 'income')), 'pos')}</span>`) +
+        `<div class="card">${txTable(list, {side: 'income'})}</div>`;
+    } else {
+      const list = incomeRecords(f, r, false);
+      const incList = list.filter(t => t.type === 'income');
+      const alloc = list.filter(t => t.type === 'transfer' && t.from === 'general');
+      h += filterBar('inc', selects) + `<div class="grid g3 mt">
+        ${stat('Income in range', amt(sum(incList), 'pos'), rangeLabel(r))}
+        ${stat('Allocated from General', amt(sum(alloc)), 'To income & expense pockets')}
+        ${stat('Records', list.length, 'Matching your filters')}
+      </div>
+      <div class="grid g2 mt">
+        <div class="card"><div class="card-title">By fund source</div>${hbars(groupBy(incList, t => srcName(t.sourceId)), 'No income in this range.')}</div>
+        <div class="card"><div class="card-title">Saved by pocket tag</div>${hbars(groupBy(list.filter(t => P(t.to)?.type === 'income'), t => P(t.to).tag || 'Untagged'), 'Nothing saved to pockets yet.')}</div>
+      </div>`;
+    }
+  }
   return h;
 }
 
+/* ---------------- Expense ---------------- */
 function pageExpense() {
   const f = ui.exp, r = rangeOf(f);
   const pockets = activePockets('expense');
   const tm = thisMonth(), ty = thisYear();
   const pass = t => (!f.tag || txnTag(t) === f.tag) && (!f.pocket || t.from === f.pocket || t.to === f.pocket) && (!f.method || t.method === f.method);
   const exps = S.txns.filter(t => t.type === 'expense');
-  const subsMonthly = sum(S.schedules.filter(s => s.kind === 'expense' && s.tag === 'Subscription'), perMonth);
+  const bills = upcoming(30, 'expense');
 
   let h = pageHead(icon('expense', 22), 'Expense',
     'Fill your pockets from the tide of income, then chart every spend here so you always know where your money drifted',
@@ -820,58 +911,75 @@ function pageExpense() {
      <button class="btn" data-action="transfer" data-kind="expense">↔ Move between pockets</button>
      <button class="btn" data-action="newPocket" data-type="expense">＋ New expense pocket</button>`);
 
-  h += `<div class="grid g4">
-    ${stat('Expense balance', amt(expenseBalance()), 'Budget left in all pockets', `<button class="btn btn-sm mt-sm" data-action="expBreakdown">See where it is →</button>`)}
-    ${stat('Spent this month', amt(sum(exps.filter(t => inR(t.date, tm)))), parse(tm[0]).toLocaleDateString('en-GB', {month: 'long', year: 'numeric'}))}
-    ${stat('Spent this year', amt(sum(exps.filter(t => inR(t.date, ty)))), ty[0].slice(0, 4))}
-    ${stat('Subscriptions', amt(subsMonthly), 'Per month, from your schedules')}
-  </div>`;
+  const tabs = [
+    {id: 'overview', label: 'Overview', badge: bills.filter(s => daysBetween(today(), s.nextDue) < 0).length || '', warn: true},
+    {id: 'pockets', label: 'Pockets', badge: pockets.length || ''},
+    {id: 'records', label: 'Records'},
+    {id: 'insights', label: 'Insights'}
+  ];
+  const tab = curTab('expense', tabs);
+  h += tabsBar('expense', tabs, tab);
 
-  const bills = upcoming(30, 'expense').slice(0, 4);
-  h += sectionTitle('Upcoming bills & subscriptions', `<a class="link-light" href="#/schedules">Manage →</a>`) +
-    `<div class="card">${schedList(bills, 'No bills due in the next 30 days.', true)}</div>`;
+  if (tab === 'overview') {
+    const subsMonthly = sum(S.schedules.filter(s => s.kind === 'expense' && s.tag === 'Subscription'), perMonth);
+    h += `<div class="grid g4">
+      ${stat('Expense balance', amt(expenseBalance()), 'Budget left in all pockets', `<button class="btn btn-sm mt-sm" data-action="expBreakdown">See where it is →</button>`)}
+      ${stat('Spent this month', amt(sum(exps.filter(t => inR(t.date, tm)))), parse(tm[0]).toLocaleDateString('en-GB', {month: 'long', year: 'numeric'}))}
+      ${stat('Spent this year', amt(sum(exps.filter(t => inR(t.date, ty)))), ty[0].slice(0, 4))}
+      ${stat('Subscriptions', amt(subsMonthly), 'Per month, from your schedules')}
+    </div>` + sectionTitle('Upcoming bills & subscriptions', `<a class="link-light" href="#/schedules">Manage →</a>`) +
+      `<div class="card">${schedList(bills.slice(0, 5), 'No bills due in the next 30 days.', true)}</div>`;
+  }
 
-  h += sectionTitle(`Expense pockets · ${pockets.length}`) + `<div class="grid pockets-grid">${pockets.map(pocketCard).join('')}
-    <button class="pocket card add-card" data-action="newPocket" data-type="expense">＋ New expense pocket</button></div>`;
+  if (tab === 'pockets') {
+    h += `<div class="grid pockets-grid">${pockets.map(pocketCard).join('')}
+      <button class="pocket card add-card" data-action="newPocket" data-type="expense">＋ New expense pocket</button></div>`;
+  }
 
-  const tags = [...new Set([...pockets.map(p => p.tag), ...exps.map(txnTag)].filter(Boolean))];
-  const methods = [...new Set(exps.map(t => t.method).filter(Boolean))];
-  const extra = `<select data-filter="exp.tag" aria-label="Tag"><option value="">All tags</option>${tags.map(c => opt(c, c, f.tag)).join('')}</select>
-    <select data-filter="exp.pocket" aria-label="Pocket"><option value="">All pockets</option>${pockets.map(p => opt(p.id, p.name, f.pocket)).join('')}</select>
-    <select data-filter="exp.method" aria-label="Payment method"><option value="">All payment methods</option>${methods.map(m => opt(m, m, f.method)).join('')}</select>`;
-  h += sectionTitle('Spending & records') + filterBar('exp', extra);
-
-  const spentList = exps.filter(t => inR(t.date, r) && pass(t));
-  const spent = sum(spentList);
-  const bounded = r && !r[0].startsWith('0000') && !r[1].startsWith('9999');
-  const days = bounded ? Math.max(1, daysBetween(r[0], r[1]) + 1) : 0;
-  h += `<div class="grid g4 mt">
-    ${stat('Spent in range', amt(spent), rangeLabel(r))}
-    ${stat('Funded from income', amt(netToExpense(r)), rangeLabel(r))}
-    ${stat('Transactions', spentList.length, spentList.length ? `Avg ${amt(spent / spentList.length)} each` : '—')}
-    ${stat('Daily average', bounded ? amt(spent / days) : '—', bounded ? `${days} day${days > 1 ? 's' : ''}` : 'Pick a day, week, month or year')}
-  </div>
-  <div class="grid g3 mt">
-    <div class="card"><div class="card-title">By tag</div>${hbars(groupBy(spentList, txnTag).map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
-    <div class="card"><div class="card-title">By pocket</div>${hbars(groupBy(spentList, t => accName(t.from)).map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
-    <div class="card"><div class="card-title">By payment method</div>${hbars(groupBy(spentList, t => t.method || 'Not specified').map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
-  </div>
-  <div class="card mt"><div class="card-title">Funded vs spent · last 6 months</div>${monthlyChart([
-    {name: 'Funded', cls: 'bs', pred: t => isExpenseAcc(t.to) && !isExpenseAcc(t.from)},
-    {name: 'Spent', cls: 'be', pred: t => t.type === 'expense'}])}</div>`;
-
-  const list = sorted(S.txns.filter(t => (isExpenseAcc(t.to) || isExpenseAcc(t.from)) && inR(t.date, r) &&
-    (t.type === 'expense' ? pass(t) : (!f.method && (!f.pocket || t.from === f.pocket || t.to === f.pocket) && (!f.tag || [P(t.to)?.tag, P(t.from)?.tag].includes(f.tag))))));
-  h += `<div class="card mt">${txTable(list, {side: 'expense'})}</div>`;
+  if (tab === 'records' || tab === 'insights') {
+    const tags = [...new Set([...pockets.map(p => p.tag), ...exps.map(txnTag)].filter(Boolean))];
+    const methods = [...new Set(exps.map(t => t.method).filter(Boolean))];
+    const selects = `<select data-filter="exp.tag" aria-label="Tag"><option value="">All tags</option>${tags.map(c => opt(c, c, f.tag)).join('')}</select>
+      <select data-filter="exp.pocket" aria-label="Pocket"><option value="">All pockets</option>${pockets.map(p => opt(p.id, p.name, f.pocket)).join('')}</select>
+      <select data-filter="exp.method" aria-label="Payment method"><option value="">All payment methods</option>${methods.map(m => opt(m, m, f.method)).join('')}</select>`;
+    if (tab === 'records') {
+      const list = sorted(S.txns.filter(t => (isExpenseAcc(t.to) || isExpenseAcc(t.from)) && inR(t.date, r) &&
+        (t.type === 'expense' ? pass(t) : (!f.method && (!f.pocket || t.from === f.pocket || t.to === f.pocket) && (!f.tag || [P(t.to)?.tag, P(t.from)?.tag].includes(f.tag)))) &&
+        (!f.type || t.type === f.type) && matchQ(t, f.q)));
+      h += filterBar('exp', selects + typeSelect('exp', [['expense', 'Expense'], ['transfer', 'Transfer'], ['withdraw', 'Withdraw']]) + searchBox('exp', 'Search title, paid to, notes, method…')) +
+        resultLine(list, `<span>Spent ${amt(sum(list.filter(t => t.type === 'expense')))}</span>`) +
+        `<div class="card">${txTable(list, {side: 'expense'})}</div>`;
+    } else {
+      const spentList = exps.filter(t => inR(t.date, r) && pass(t));
+      const spent = sum(spentList);
+      const bounded = r && !r[0].startsWith('0000') && !r[1].startsWith('9999');
+      const days = bounded ? Math.max(1, daysBetween(r[0], r[1]) + 1) : 0;
+      h += filterBar('exp', selects) + `<div class="grid g4 mt">
+        ${stat('Spent in range', amt(spent), rangeLabel(r))}
+        ${stat('Funded from income', amt(netToExpense(r)), rangeLabel(r))}
+        ${stat('Transactions', spentList.length, spentList.length ? `Avg ${amt(spent / spentList.length)} each` : '—')}
+        ${stat('Daily average', bounded ? amt(spent / days) : '—', bounded ? `${days} day${days > 1 ? 's' : ''}` : 'Pick a day, week, month or year')}
+      </div>
+      <div class="grid g3 mt">
+        <div class="card"><div class="card-title">By tag</div>${hbars(groupBy(spentList, txnTag).map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
+        <div class="card"><div class="card-title">By pocket</div>${hbars(groupBy(spentList, t => accName(t.from)).map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
+        <div class="card"><div class="card-title">By payment method</div>${hbars(groupBy(spentList, t => t.method || 'Not specified').map(x => ({...x, cls: 'alt'})), 'No spending in this range.')}</div>
+      </div>
+      <div class="card mt"><div class="card-title">Funded vs spent · last 6 months</div>${monthlyChart([
+        {name: 'Funded', cls: 'bs', pred: t => isExpenseAcc(t.to) && !isExpenseAcc(t.from)},
+        {name: 'Spent', cls: 'be', pred: t => t.type === 'expense'}])}</div>`;
+    }
+  }
   return h;
 }
 
+/* ---------------- Bills & Paydays ---------------- */
 function pageSchedules() {
   const all = S.schedules;
   const subs = all.filter(s => s.kind === 'expense' && s.tag === 'Subscription');
   const bills = all.filter(s => s.kind === 'expense' && s.tag !== 'Subscription');
   const pays = all.filter(s => s.kind === 'income');
-  const next7 = upcoming(7, 'expense');
+  const soon = upcoming(30);
   const overdue = upcoming(-1);
   const byDue = l => [...l].sort((a, b) => (a.nextDue || '9999').localeCompare(b.nextDue || '9999'));
 
@@ -880,29 +988,41 @@ function pageSchedules() {
     `<button class="btn btn-primary" data-action="newSched" data-kind="expense">＋ New payment</button>
      <button class="btn" data-action="newSched" data-kind="income">＋ New payday</button>`);
 
-  h += `<div class="grid g4">
-    ${stat('Due in 7 days', amt(sum(next7)), `${next7.length} payment${next7.length === 1 ? '' : 's'}`)}
-    ${stat('Subscriptions', amt(sum(subs, perMonth)), `Per month · ${amt(sum(subs, perMonth) * 12)} a year`)}
-    ${stat('Bills', amt(sum(bills, perMonth)), 'Per month, recurring')}
-    ${stat('Overdue', overdue.length, overdue.length ? 'Needs attention' : 'All caught up', '')}
-  </div>`;
+  const tabs = [
+    {id: 'soon', label: 'Coming up', badge: overdue.length || soon.length || '', warn: overdue.length > 0},
+    {id: 'subs', label: 'Subscriptions', badge: subs.length || ''},
+    {id: 'bills', label: 'Bills', badge: bills.length || ''},
+    {id: 'pays', label: 'Paydays', badge: pays.length || ''}
+  ];
+  const tab = curTab('schedules', tabs);
+  h += tabsBar('schedules', tabs, tab);
 
-  h += sectionTitle('Coming up · next 30 days') + `<div class="card">${schedList(upcoming(30), 'Nothing due in the next 30 days.')}</div>`;
-  h += sectionTitle(`Subscriptions · ${subs.length}`) + `<div class="card">${schedList(byDue(subs), 'No subscriptions yet. Add Netflix, Spotify, iCloud, YouTube Premium and others with their billing date and payment method.')}</div>`;
-  h += sectionTitle(`Bills & other payments · ${bills.length}`) + `<div class="card">${schedList(byDue(bills), 'No bills yet — electricity, internet, rent, insurance, installments.')}</div>`;
-  h += sectionTitle(`Paydays & expected income · ${pays.length}`) + `<div class="card">${schedList(byDue(pays), 'No paydays yet. Add your salary date so you know when money arrives.')}</div>`;
+  if (tab === 'soon') {
+    const next7 = upcoming(7, 'expense');
+    h += `<div class="grid g4">
+      ${stat('Due in 7 days', amt(sum(next7)), `${next7.length} payment${next7.length === 1 ? '' : 's'}`)}
+      ${stat('Subscriptions', amt(sum(subs, perMonth)), `Per month · ${amt(sum(subs, perMonth) * 12)} a year`)}
+      ${stat('Bills', amt(sum(bills, perMonth)), 'Per month, recurring')}
+      ${stat('Overdue', overdue.length, overdue.length ? 'Needs attention' : 'All caught up', '')}
+    </div>` + sectionTitle('Next 30 days') + `<div class="card">${schedList(soon, 'Nothing due in the next 30 days.')}</div>`;
+  }
+  if (tab === 'subs') h += `<div class="result-line"><span>${subs.length} subscription${subs.length === 1 ? '' : 's'}</span><span>${amt(sum(subs, perMonth))} per month</span></div>
+    <div class="card">${schedList(byDue(subs), 'No subscriptions yet. Press New payment and choose the tag Subscription — Netflix, Spotify, iCloud, YouTube Premium and others.')}</div>`;
+  if (tab === 'bills') h += `<div class="result-line"><span>${bills.length} bill${bills.length === 1 ? '' : 's'}</span><span>${amt(sum(bills, perMonth))} per month</span></div>
+    <div class="card">${schedList(byDue(bills), 'No bills yet — electricity, internet, rent, insurance, installments.')}</div>`;
+  if (tab === 'pays') h += `<div class="result-line"><span>${pays.length} payday${pays.length === 1 ? '' : 's'}</span><span>${amt(sum(pays, perMonth), 'pos')} per month</span></div>
+    <div class="card">${schedList(byDue(pays), 'No paydays yet. Press New payday and add your salary date so you know when money arrives.')}</div>`;
   return h;
 }
 
+/* ---------------- One pocket ---------------- */
 function pagePocket(id) {
   const p = P(id);
   if (!p) return pageHead(icon('pocket', 22), 'Pocket not found', 'It may have been deleted.', `<a class="btn" href="#/home">Back home</a>`);
   const isInc = p.type === 'income';
   const all = S.txns.filter(t => t.to === id || t.from === id);
-  const b = bal(id), tin = sum(all.filter(t => t.to === id)), tout = sum(all.filter(t => t.from === id));
-  const lastIn = sorted(all.filter(t => t.to === id))[0];
-  const lastOut = sorted(all.filter(t => t.from === id))[0];
   const usual = p.payDay ? ` <span class="chip light">${isInc ? 'Usual top-up' : 'Usual payment'}: ${dayText(p.payDay)}</span>` : '';
+  const sch = S.schedules.filter(s => s.pocket === id || s.to === id);
 
   let h = pageHead(avatar(p, 'lg'), esc(p.name),
     `<span class="chip light">${esc(p.tag || 'Untagged')}</span> <span class="chip light">${isInc ? 'Income pocket' : 'Expense pocket'}</span>${usual}${p.desc ? ` &nbsp;${esc(p.desc)}` : ''}`,
@@ -915,70 +1035,82 @@ function pagePocket(id) {
 
   if (p.archived) h += `<div class="callout warn" style="margin-bottom:14px"><span class="callout-dot"></span><div>This pocket is archived. Its history is kept for your records.</div></div>`;
 
-  h += `<div class="grid g4">
-    ${stat('Balance', amt(b, b < 0 ? 'over' : ''), isInc ? 'Saved in this pocket' : 'Budget left to spend')}
-    ${stat('Total in', amt(tin, 'pos'), `${all.filter(t => t.to === id).length} records`)}
-    ${stat(isInc ? 'Total out' : 'Total spent', amt(tout), `${all.filter(t => t.from === id).length} records`)}
-    ${stat('Last money in', lastIn ? amt(lastIn.amount, 'pos') : '—', lastIn ? fmtDate(lastIn.date) : 'Nothing yet', lastOut ? `<div class="sub">Last out ${amt(lastOut.amount)} · ${fmtDate(lastOut.date)}</div>` : '')}
-  </div>`;
+  const tabs = [
+    {id: 'overview', label: 'Overview'},
+    {id: 'records', label: 'Records', badge: all.length || ''},
+    {id: 'bills', label: isInc ? 'Paydays' : 'Bills', badge: sch.length || ''}
+  ];
+  const tab = curTab('pocket', tabs);
+  h += tabsBar('pocket', tabs, tab);
 
-  if (isInc) {
-    if (p.target) {
-      const pct = b / p.target * 100, remain = Math.max(0, p.target - b);
-      let plan = '';
-      if (p.end) {
-        const d = daysBetween(today(), p.end);
-        if (b >= p.target) plan = 'Goal reached';
-        else if (d > 0) plan = `${d} days left · save about ${amt(remain / Math.max(1, d / 30.44))} per month to reach it`;
-        else plan = 'Target date has passed — adjust the saving period?';
-      }
-      h += `<div class="card mt"><div class="card-title"><span>Savings goal</span><span class="muted sm">${p.start || p.end ? `Saving period ${fmtDate(p.start)} – ${fmtDate(p.end)}` : ''}</span></div>
-        <div class="stat"><div class="val">${amt(b)} <span class="muted" style="font-size:14px;font-weight:500">of ${amt(p.target)}</span></div></div>
-        ${progress(pct, `${Math.max(0, Math.round(pct))}% · ${amt(remain)} to go${plan ? ' · ' + plan : ''}`, false, true)}</div>`;
-    } else {
-      h += `<div class="callout"><span class="callout-dot"></span><div class="grow">Set a target and saving period to track progress for this pocket.</div><button class="btn btn-sm" data-action="editPocket" data-id="${id}">Set target</button></div>`;
-    }
-  } else {
-    const tm = thisMonth(), ty = thisYear();
-    const sm = spentIn(id, tm), sy = spentIn(id, ty), mIdx = new Date().getMonth() + 1;
-    h += `<div class="grid g3 mt">
-      <div class="card"><div class="lbl">This month</div><div class="stat"><div class="val">${amt(sm)}</div></div>
-        ${p.budget ? progress(sm / p.budget * 100, `${Math.round(sm / p.budget * 100)}% of ${amt(p.budget)} budget`, sm > p.budget) : `<div class="muted sm">No monthly budget · <a href="#" data-action="editPocket" data-id="${id}">set one</a></div>`}</div>
-      ${stat('This year', amt(sy), today().slice(0, 4))}
-      ${stat('Monthly average', amt(sy / mIdx), `Across ${mIdx} months this year`)}
+  if (tab === 'overview') {
+    const b = bal(id), tin = sum(all.filter(t => t.to === id)), tout = sum(all.filter(t => t.from === id));
+    const lastIn = sorted(all.filter(t => t.to === id))[0];
+    const lastOut = sorted(all.filter(t => t.from === id))[0];
+    h += `<div class="grid g4">
+      ${stat('Balance', amt(b, b < 0 ? 'over' : ''), isInc ? 'Saved in this pocket' : 'Budget left to spend')}
+      ${stat('Total in', amt(tin, 'pos'), `${all.filter(t => t.to === id).length} records`)}
+      ${stat(isInc ? 'Total out' : 'Total spent', amt(tout), `${all.filter(t => t.from === id).length} records`)}
+      ${stat('Last money in', lastIn ? amt(lastIn.amount, 'pos') : '—', lastIn ? fmtDate(lastIn.date) : 'Nothing yet', lastOut ? `<div class="sub">Last out ${amt(lastOut.amount)} · ${fmtDate(lastOut.date)}</div>` : '')}
     </div>`;
+    if (isInc) {
+      if (p.target) {
+        const pct = b / p.target * 100, remain = Math.max(0, p.target - b);
+        let plan = '';
+        if (p.end) {
+          const d = daysBetween(today(), p.end);
+          if (b >= p.target) plan = 'Goal reached';
+          else if (d > 0) plan = `${d} days left · save about ${amt(remain / Math.max(1, d / 30.44))} per month to reach it`;
+          else plan = 'Target date has passed — adjust the saving period?';
+        }
+        h += `<div class="card mt"><div class="card-title"><span>Savings goal</span><span class="muted sm">${p.start || p.end ? `Saving period ${fmtDate(p.start)} – ${fmtDate(p.end)}` : ''}</span></div>
+          <div class="stat"><div class="val">${amt(b)} <span class="muted" style="font-size:14px;font-weight:500">of ${amt(p.target)}</span></div></div>
+          ${progress(pct, `${Math.max(0, Math.round(pct))}% · ${amt(remain)} to go${plan ? ' · ' + plan : ''}`, false, true)}</div>`;
+      } else {
+        h += `<div class="callout"><span class="callout-dot"></span><div class="grow">Set a target and saving period to track progress for this pocket.</div><button class="btn btn-sm" data-action="editPocket" data-id="${id}">Set target</button></div>`;
+      }
+    } else {
+      const tm = thisMonth(), ty = thisYear();
+      const sm = spentIn(id, tm), sy = spentIn(id, ty), mIdx = new Date().getMonth() + 1;
+      h += `<div class="grid g3 mt">
+        <div class="card"><div class="lbl">This month</div><div class="stat"><div class="val">${amt(sm)}</div></div>
+          ${p.budget ? progress(sm / p.budget * 100, `${Math.round(sm / p.budget * 100)}% of ${amt(p.budget)} budget`, sm > p.budget) : `<div class="muted sm">No monthly budget · <a href="#" data-action="editPocket" data-id="${id}">set one</a></div>`}</div>
+        ${stat('This year', amt(sy), today().slice(0, 4))}
+        ${stat('Monthly average', amt(sy / mIdx), `Across ${mIdx} months this year`)}
+      </div>`;
+    }
+    h += `<div class="card mt"><div class="card-title">Money in vs out · last 6 months</div>${monthlyChart([
+      {name: 'In', cls: 'bi', pred: t => t.to === id},
+      {name: isInc ? 'Out' : 'Spent', cls: 'be', pred: t => t.from === id}])}</div>`;
   }
 
-  const sch = S.schedules.filter(s => s.pocket === id || s.to === id);
-  if (sch.length) h += sectionTitle(`Bills & schedules for this pocket · ${sch.length}`) + `<div class="card">${schedList(sch, '')}</div>`;
+  if (tab === 'records') {
+    const asc = [...all].sort((a, c) => a.date.localeCompare(c.date) || (a.createdAt || 0) - (c.createdAt || 0));
+    let run = 0; const runMap = {};
+    asc.forEach(t => { run += (t.to === id ? t.amount : 0) - (t.from === id ? t.amount : 0); runMap[t.id] = run; });
+    const f = ui.pk, r = rangeOf(f);
+    const list = sorted(all.filter(t => inR(t.date, r) && matchQ(t, f.q) && (!f.type || (f.type === 'in' ? t.to === id : t.from === id))));
+    const dir = `<select data-filter="pk.type" aria-label="Direction">${opt('', 'Money in and out', f.type)}${opt('in', 'Money in only', f.type)}${opt('out', 'Money out only', f.type)}</select>`;
+    h += filterBar('pk', dir + searchBox('pk', 'Search title, notes, paid to…')) +
+      resultLine(list, `<span>In ${amt(sum(list.filter(t => t.to === id)), 'pos')} · Out ${amt(sum(list.filter(t => t.from === id)))}</span>`) +
+      `<div class="card">${txTable(list, {ctx: id, run: runMap})}</div>
+      <p class="hint-light">New money for this pocket is added from the <a href="#/${isInc ? 'income' : 'expense'}">${isInc ? 'Income' : 'Expense'} page</a>. Every record here can still be edited or deleted.</p>`;
+  }
 
-  h += `<div class="callout"><span class="callout-dot"></span><div class="grow">New money for this pocket is added from the <a href="#/${isInc ? 'income' : 'expense'}">${isInc ? 'Income' : 'Expense'} page</a>. Every record below can still be edited or deleted.</div></div>`;
-
-  h += `<div class="card mt"><div class="card-title">Money in vs out · last 6 months</div>${monthlyChart([
-    {name: 'In', cls: 'bi', pred: t => t.to === id},
-    {name: isInc ? 'Out' : 'Spent', cls: 'be', pred: t => t.from === id}])}</div>`;
-
-  const asc = [...all].sort((a, c) => a.date.localeCompare(c.date) || (a.createdAt || 0) - (c.createdAt || 0));
-  let run = 0; const runMap = {};
-  asc.forEach(t => { run += (t.to === id ? t.amount : 0) - (t.from === id ? t.amount : 0); runMap[t.id] = run; });
-  const r = rangeOf(ui.pk);
-  const list = sorted(all.filter(t => inR(t.date, r)));
-  h += sectionTitle('Pocket records') + filterBar('pk') +
-    `<div class="grid g2 mt">${stat('In (range)', amt(sum(list.filter(t => t.to === id)), 'pos'), rangeLabel(r))}${stat('Out (range)', amt(sum(list.filter(t => t.from === id))), rangeLabel(r))}</div>
-     <div class="card mt">${txTable(list, {ctx: id, run: runMap})}</div>`;
+  if (tab === 'bills') {
+    h += `<div class="card">${schedList(sch, isInc ? 'No paydays go to this pocket yet.' : 'No bills or subscriptions are paid from this pocket yet.')}</div>
+      ${isInc || p.archived ? '' : `<div class="page-actions"><button class="btn btn-primary" data-action="newSched" data-kind="expense" data-pocket="${id}">＋ Payment for this pocket</button></div>`}`;
+  }
   return h;
 }
 
+/* ---------------- All records ---------------- */
 function pageRecords() {
-  const f = ui.rec, r = rangeOf(f), q = f.q.trim().toLowerCase();
-  const list = sorted(S.txns.filter(t => inR(t.date, r) && (!f.type || t.type === f.type) &&
-    (!q || [t.activity, t.note, t.recipient, t.method, t.sourceId ? srcName(t.sourceId) : '', accName(t.from), t.to ? accName(t.to) : '', t.type === 'expense' ? txnTag(t) : '', String(t.amount)]
-      .join(' ').toLowerCase().includes(q))));
+  const f = ui.rec, r = rangeOf(f);
+  const list = sorted(S.txns.filter(t => inR(t.date, r) && (!f.type || t.type === f.type) && matchQ(t, f.q)));
   let h = pageHead(icon('records', 22), 'All Records', 'Every income, transfer, expense and withdrawal in one searchable ledger.',
     `<button class="btn btn-primary" data-action="exportExcel">Export to Excel</button><button class="btn" data-action="exportCSV">Export CSV</button>`);
-  const extra = `<select data-filter="rec.type" aria-label="Type"><option value="">All types</option>${Object.entries(TYPE_LABEL).map(([k, v]) => opt(k, v, f.type)).join('')}</select>
-    <input id="recSearch" type="search" placeholder="Search title, notes, recipient, method, pocket…" value="${esc(f.q)}">`;
-  h += filterBar('rec', extra);
+  h += filterBar('rec', typeSelect('rec', Object.entries(TYPE_LABEL)) + searchBox('rec', 'Search title, notes, recipient, method, pocket…'));
   h += `<div class="grid g3 mt">
     ${stat('Income', amt(sum(list.filter(t => t.type === 'income')), 'pos'), rangeLabel(r))}
     ${stat('Expense', amt(sum(list.filter(t => t.type === 'expense'))), rangeLabel(r))}
@@ -987,6 +1119,7 @@ function pageRecords() {
   return h;
 }
 
+/* ---------------- Settings ---------------- */
 function pageSettings() {
   const used = id => S.txns.filter(t => t.sourceId === id).length;
   const listCard = (key, title, hint, placeholder) => `<div class="card"><div class="card-title"><span>${title}</span><span class="muted sm">${S[key].length} options</span></div>
@@ -995,8 +1128,20 @@ function pageSettings() {
       <div class="add-row"><input id="new-${key}" placeholder="${placeholder}" data-enter="addListItem" data-key="${key}"><button class="btn btn-sm btn-primary" data-action="addListItem" data-key="${key}">Add</button></div>
     </div>`;
   const archived = S.pockets.filter(p => p.archived);
-  return pageHead(icon('settings', 22), 'Settings', 'Personalise your space, manage fund sources, tags and payment methods, and back up your data.') +
-  `${cloudCard()}<div class="grid g2 mt">
+  const tabs = [
+    {id: 'account', label: 'Account & Sync'},
+    {id: 'profile', label: 'Profile'},
+    {id: 'sources', label: 'Fund Sources', badge: S.sources.length || ''},
+    {id: 'tags', label: 'Tags & Methods'},
+    {id: 'appearance', label: 'Appearance'},
+    {id: 'data', label: 'Data'},
+    {id: 'archived', label: 'Archived', badge: archived.length || ''}
+  ];
+  const tab = curTab('settings', tabs);
+  let h = pageHead(icon('settings', 22), 'Settings', 'Personalise your space, manage fund sources, tags and payment methods, and back up your data.') + tabsBar('settings', tabs, tab);
+
+  if (tab === 'account') h += cloudCard();
+  if (tab === 'profile') h += `<div class="grid g2">
     <div class="card"><div class="card-title">Profile</div>
       <label class="field"><span class="lbl">Your name (shown after the welcome message)</span><input data-setting="name" value="${esc(S.name)}"></label>
     </div>
@@ -1007,26 +1152,22 @@ function pageSettings() {
       </div>
       <label class="field mt-sm"><span class="lbl">Repeat</span><select data-setting="period.repeat">${opt('1', 'Roll over automatically every month', S.period.repeat ? '1' : '0')}${opt('0', 'Keep these dates (no repeat)', S.period.repeat ? '1' : '0')}</select></label>
     </div>
-  </div>
-
-  <div class="card mt"><div class="card-title">Fund sources <span class="muted sm">Where your income comes from — rename anytime</span></div>
+  </div>`;
+  if (tab === 'sources') h += `<div class="card"><div class="card-title">Fund sources <span class="muted sm">Where your income comes from — rename anytime</span></div>
     ${S.sources.map(s => `<div class="list-row"><input data-source-rename="${s.id}" value="${esc(s.name)}"><span class="muted sm">${used(s.id)} records</span><button class="btn btn-sm btn-ghost" data-action="delSource" data-id="${s.id}">Remove</button></div>`).join('') || '<div class="muted">No sources yet.</div>'}
     <div class="add-row"><input id="newSource" placeholder="e.g. your office name, Freelance Design, Weekend Barista" data-enter="addSource"><button class="btn btn-primary" data-action="addSource">Add source</button></div>
-  </div>
-
-  <div class="grid g3 mt">
+  </div>`;
+  if (tab === 'tags') h += `<div class="grid g3">
     ${listCard('incomeTags', 'Income pocket tags', 'Shown when you create or edit an income pocket. "Others" always stays last.', 'New income tag…')}
     ${listCard('expenseTags', 'Expense tags', 'Used for expense pockets, expenses and bills.', 'New expense tag…')}
     ${listCard('methods', 'Payment methods', 'Credit and debit cards, Play Store, e-wallets and more.', 'e.g. BCA Credit Card, Jenius')}
-  </div>
-
-  <div class="grid g2 mt">
-    <div class="card"><div class="card-title">Appearance</div>
+  </div>`;
+  if (tab === 'appearance') h += `<div class="card"><div class="card-title">Appearance</div>
       <label class="field"><span class="lbl">Cosmic ocean animation</span><select data-setting="motion">${opt('1', 'On — stars, waves and sea creatures move', S.motion ? '1' : '0')}${opt('0', 'Off — keep the scene still', S.motion ? '1' : '0')}</select></label>
       <p class="muted sm" style="margin-bottom:0">Turn it off if your device feels slow. It also stays still when your system asks for reduced motion.</p>
-    </div>
-    <div class="card"><div class="card-title">Data</div>
-      <p class="muted sm" style="margin-top:0">Your data lives in this browser only. Export a backup regularly.</p>
+    </div>`;
+  if (tab === 'data') h += `<div class="card"><div class="card-title">Data</div>
+      <p class="muted sm" style="margin-top:0">${CLOUD.enabled ? 'Your data is saved to your account automatically. Exports are handy for spreadsheets or an extra copy.' : 'Your data lives in this browser only. Export a backup regularly.'}</p>
       <div class="chips">
         <button class="btn btn-sm btn-primary" data-action="exportExcel">Export to Excel</button>
         <button class="btn btn-sm" data-action="exportCSV">Export CSV</button>
@@ -1034,15 +1175,14 @@ function pageSettings() {
         <button class="btn btn-sm" data-action="importJSON">Import backup</button>
         <button class="btn btn-sm btn-danger" data-action="resetAll">Reset everything</button>
       </div>
-    </div>
-  </div>
-
-  <div class="card mt"><div class="card-title">Archived pockets</div>
+    </div>`;
+  if (tab === 'archived') h += `<div class="card"><div class="card-title">Archived pockets</div>
     ${archived.length ? archived.map(p => `<div class="list-row"><span style="flex:1">${esc(p.name)} <span class="chip">${p.type}</span></span>
       <a class="btn btn-sm btn-ghost" href="#/pocket/${p.id}">View</a>
       <button class="btn btn-sm" data-action="restorePocket" data-id="${p.id}">Restore</button>
       <button class="btn btn-sm btn-ghost" data-action="purgePocket" data-id="${p.id}">Delete forever</button></div>`).join('') : '<div class="muted sm">No archived pockets.</div>'}
   </div>`;
+  return h;
 }
 
 /* =========================================================
@@ -1590,7 +1730,7 @@ const cloudHooks = {
     if (hasContent() && before !== JSON.stringify(data)) {
       try { localStorage.setItem(KEY + '-before-sync', JSON.stringify(S)); } catch (e) { /* ignore */ }
     }
-    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion};
+    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs};
     S = Object.assign(defaults(), data.meta || {}, {txns: data.txns || []}, device, {syncUid: uid, unsynced: false});
     migrate();
     S.cloudHash = hashStr(JSON.stringify(dataOf()));
@@ -1602,7 +1742,7 @@ const cloudHooks = {
     const canon = d => JSON.stringify({meta: d.meta, txns: [...d.txns].sort((a, b) => a.id < b.id ? -1 : 1)});
     const incoming = JSON.stringify(data);
     if (canon(data) === canon(dataOf())) return;
-    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, syncUid: S.syncUid};
+    const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs, syncUid: S.syncUid};
     S = Object.assign(defaults(), data.meta || {}, {txns: data.txns || []}, device, {unsynced: false});
     migrate();
     S.cloudHash = hashStr(incoming);
@@ -1657,7 +1797,7 @@ const authVisible = () => {
 };
 function authHTML(st) {
   const mode = ui.authMode || 'in';
-  const brand = `<div class="auth-brand"><span class="brand-logo"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1M2 7c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1"/></svg></span>
+  const brand = `<div class="auth-brand"><span class="auth-logo">${logoSVG(52)}</span>
     <div><div class="auth-title">Cosmic Currents</div><div class="muted sm">Dedicated for Sofi</div></div></div>`;
   if (st.state === 'loading') return `${brand}<div class="auth-loading"><span class="spinner"></span>Connecting…</div>`;
   if (st.state === 'error' && st.sdkFailed) return `${brand}
@@ -1799,6 +1939,11 @@ const A = {
   payNow: d => { const s = SCH(d.id); if (!s) return; s.kind === 'income' ? incomeModal(null, {schedule: s}) : expenseModal(null, {schedule: s}); },
   skipSched: d => { const s = SCH(d.id); if (!s) return; const was = s.nextDue; advanceSchedule(s); save(); render(); toast(`Skipped ${fmtDM(was)} — next on ${fmtDate(s.nextDue)}`); },
   pauseSched: d => { const s = SCH(d.id); if (!s) return; s.active = s.active === false; save(); render(); toast(s.active ? `${s.title} resumed` : `${s.title} paused`); },
+  setTab: d => {
+    S.tabs = Object.assign({}, S.tabs, {[d.page]: d.tab});
+    saveLocal(); render();
+    const bar = $('.tabs'); if (bar && bar.getBoundingClientRect().top < 0) bar.scrollIntoView({block: 'start'});
+  },
   editPeriod: () => periodModal(),
   expBreakdown: () => expBreakdownModal(),
   shiftRange: d => {
@@ -1836,7 +1981,7 @@ const A = {
     confirmModal('Sign out?', `Your data stays safe in your account. For privacy, this device's copy is removed and the login page appears — sign in again anytime to get everything back.${pending ? '<br><br><b>Some changes haven\'t reached the cloud yet</b> (no internet). Connect first, or they will be lost.' : ''}`, 'Sign out', async () => {
       toast('Signing out…');
       await CLOUD.signOut();
-      const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion};
+      const device = {welcomeIdx: S.welcomeIdx, privacy: S.privacy, motion: S.motion, tabs: S.tabs};
       S = Object.assign(defaults(), device);
       saveLocal();
       try { localStorage.removeItem(KEY + '-before-sync'); } catch (e) { /* ignore */ }
@@ -1897,6 +2042,19 @@ function renderNav(r) {
   };
   $('#navPockets').innerHTML = group('Income pockets', 'income') + group('Expense pockets', 'expense');
   $('#brandSub').textContent = `${S.name}'s money space`;
+  const st = CLOUD.status();
+  let acct = $('#acctBox');
+  if (!acct) {
+    acct = document.createElement('div');
+    acct.id = 'acctBox';
+    acct.className = 'acct-box';
+    $('.sidebar-actions').appendChild(acct);
+  }
+  if (CLOUD.enabled && st.uid) {
+    acct.hidden = false;
+    acct.innerHTML = `<div class="acct-email" title="${esc(st.email)}">Signed in as <b>${esc(st.email)}</b></div>
+      <button class="btn btn-ghost btn-block btn-signout" data-action="signOut">${icon('logout')} Sign out</button>`;
+  } else { acct.hidden = true; acct.innerHTML = ''; }
   $('#privacyBtn').textContent = S.privacy ? 'Show amounts' : 'Hide amounts';
 }
 function typeWelcome() {
@@ -1975,12 +2133,13 @@ document.addEventListener('input', e => {
     const d = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
     el.value = d ? Number(d).toLocaleString('id-ID') : '';
   }
-  if (el.id === 'recSearch') {
-    ui.rec.q = el.value;
+  if (el.dataset.search) {
+    const key = el.dataset.search;
+    ui[key].q = el.value;
     clearTimeout(ui.searchT);
     ui.searchT = setTimeout(() => {
       render();
-      const s = $('#recSearch'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+      const s = $('#search-' + key); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
     }, 250);
   }
 });
@@ -1999,11 +2158,13 @@ S.welcomeIdx = (S.welcomeIdx + 1) % WELCOMES.length;   // a new welcome message 
 saveLocal();
 applyMotion();
 applyPrivacy();
+applyLogo();
 try { ui.route = location.hash || '#/home'; } catch (e) { ui.route = '#/home'; }
 render();
 if (demoCleared) toast('Sample data removed — your space is blank and ready.');
 CLOUD.onChange(() => {
   updateSyncPill();
+  renderNav(route());
   renderAuth();
   if (route().page === 'settings' && !$('#modalRoot').innerHTML && !authVisible()) render();
 });

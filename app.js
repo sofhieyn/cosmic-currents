@@ -16,16 +16,17 @@ const CLOUD = window.CloudSync || {enabled: false, status: () => ({state: 'off'}
 const WELCOMES = [
   'Welcome back,',
   'Ready to make some waves today,',
-  'Every rupiah counts,',
-  'Calm seas, steady savings,',
+  'A new start joins your constellation,',
+  'The tide brought you back,',
   'Small drops make an ocean,'
 ];
 const TIPS = [
-  'Pay yourself first — move money into savings pockets right after payday.',
+  'Give every coin a constellation.',
   'A 3–6 month emergency fund is a calm harbour in any storm.',
   'Review your subscriptions monthly. Small leaks sink big ships.',
-  'Give every rupiah a job: allocate your General Balance to pockets.',
-  'Celebrate milestones — every 10% toward a goal is worth a smile.'
+  'Pay yourself first, like the tide before the shore.',
+  'Your galaxy grows one choice at a time.',
+  'Name your goal, starts are easier to follow when they have names.'
 ];
 const INCOME_TAGS = ['Emergency Fund', 'Life Saving', 'Retirement', 'Investment', 'Stocks & Mutual Funds', 'Gold', 'Deposit', 'Crypto',
   'Travel', 'Concert & Events', 'Hobby', 'Gadget', 'Vehicle', 'House / Down Payment', 'Renovation', 'Wedding', 'Education Fund',
@@ -749,7 +750,7 @@ function pageIncome() {
   const daysLeft = Math.max(0, daysBetween(today(), per.end));
 
   let h = pageHead(icon('income', 22), 'Income',
-    'Income is limitless — it keeps adding up forever. Record money here first, then allocate it from General Balance to your pockets.',
+    'Every wave of income washes ashore here first, then flows from your General Balance into the pockets where it belongs',
     `<button class="btn btn-primary" data-action="addIncome">＋ Add income</button>
      <button class="btn" data-action="transfer" data-from="general">⇄ Allocate from General</button>
      <button class="btn" data-action="newPocket" data-type="income">＋ New income pocket</button>
@@ -813,7 +814,7 @@ function pageExpense() {
   const subsMonthly = sum(S.schedules.filter(s => s.kind === 'expense' && s.tag === 'Subscription'), perMonth);
 
   let h = pageHead(icon('expense', 22), 'Expense',
-    'Fund your expense pockets from income, then record every spend here so you always know where your money went.',
+    'Fill your pockets from the tide of income, then chart every spend here so you always know where your money drifted',
     `<button class="btn btn-primary" data-action="addExpense">＋ Add expense</button>
      <button class="btn" data-action="transfer" data-from="general" data-kind="fund">⇄ Fund from income</button>
      <button class="btn" data-action="transfer" data-kind="expense">↔ Move between pockets</button>
@@ -875,7 +876,7 @@ function pageSchedules() {
   const byDue = l => [...l].sort((a, b) => (a.nextDue || '9999').localeCompare(b.nextDue || '9999'));
 
   let h = pageHead(icon('calendar', 22), 'Bills & Paydays',
-    'Subscriptions, bills and paydays with their usual dates. New payment is money going out (choose the tag Subscription for apps); New payday is money coming in. Turn on auto-pay and it records itself on the due date.',
+    'Watch your tides rise and fall as bills drift out and paydays wash back in, so every wave of your money stays in view. Turn on auto-pay and it records itself on the due date.',
     `<button class="btn btn-primary" data-action="newSched" data-kind="expense">＋ New payment</button>
      <button class="btn" data-action="newSched" data-kind="income">＋ New payday</button>`);
 
@@ -1657,7 +1658,7 @@ const authVisible = () => {
 function authHTML(st) {
   const mode = ui.authMode || 'in';
   const brand = `<div class="auth-brand"><span class="brand-logo"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1M2 17c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1M2 7c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1"/></svg></span>
-    <div><div class="auth-title">Cosmic Currents</div><div class="muted sm">Your money, in sync on every device</div></div></div>`;
+    <div><div class="auth-title">Cosmic Currents</div><div class="muted sm">Dedicated for Sofi</div></div></div>`;
   if (st.state === 'loading') return `${brand}<div class="auth-loading"><span class="spinner"></span>Connecting…</div>`;
   if (st.state === 'error' && st.sdkFailed) return `${brand}
     <div class="callout warn" style="margin:0"><span class="callout-dot"></span><div class="grow sm">${esc(st.error)}</div></div>
@@ -1686,7 +1687,7 @@ function authHTML(st) {
       <button type="submit" class="btn btn-primary auth-submit">${mode === 'up' ? 'Create account' : 'Sign in'}</button>
       ${mode === 'in' ? '<button type="button" class="link-btn" data-auth-mode="reset">Forgot password?</button>' : ''}
     </form>
-    <p class="muted sm auth-note">${mode === 'up' ? 'Use any email you own. Your data is saved to this account and syncs between your phone and laptop.' : 'Your data syncs between your phone and laptop once you sign in.'}</p>`;
+    <p class="muted sm auth-note">${mode === 'up' ? 'Use any email you own. Your data is saved to this account and syncs between your phone and laptop.' : 'Now penning your every currents to your constellation.'}</p>`;
 }
 function renderAuth() {
   const root = $('#authRoot'); if (!root) return;

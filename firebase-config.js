@@ -10,10 +10,10 @@
    Firestore security rules (see the manual).
    ========================================================= */
 window.COSMIC_FIREBASE = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyBpWeXtG0NhiBJHPLnB62EqfJtXEhIXvsw",
+  authDomain: "cosmic-currents-syi08.firebaseapp.com",
+  projectId: "cosmic-currents-syi08",
+  storageBucket: "cosmic-currents-syi08.firebasestorage.app",
+  messagingSenderId: "613791059225",
+  appId: "1:613791059225:web:e68f5ca2830f36ddf6c988"
 };

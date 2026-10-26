@@ -16,7 +16,7 @@ const CLOUD = window.CloudSync || {enabled: false, status: () => ({state: 'off'}
 const WELCOMES = [
   'Welcome back,',
   'Ready to make some waves today,',
-  'A new start joins your constellation,',
+  'A new star joins your constellation,',
   'The tide brought you back,',
   'Small drops make an ocean,'
 ];

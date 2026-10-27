@@ -544,7 +544,7 @@ const skyArt = (size = '') => `<div class="sky-art ${size}" aria-hidden="true">
 function pageHead(iconHtml, title, desc, actions = '', crumbs = '') {
   return `<header class="page-head">${crumbs ? `<div class="crumbs">${crumbs}</div>` : ''}
     <div class="ph-top"><div class="page-icon">${iconHtml}</div>${skyArt('sm')}</div><h1>${title}</h1>
-    ${desc ? `<p class="page-desc">${desc}</p>` : ''}
+    ${desc ? `<div class="page-desc">${desc}</div>` : ''}
     ${actions ? `<div class="page-actions">${actions}</div>` : ''}</header>`;
 }
 const stat = (label, value, sub = '', extra = '') =>
@@ -681,24 +681,19 @@ function hbars(items, emptyText = 'Nothing to show yet.') {
     </${tag}>`;
   }).join('')}</div>`;
 }
-function barChart(labels, series, H = 200) {
-  const W = 640, L = 46, B = 24, T = 10;
-  const max = Math.max(1, ...series.flatMap(s => s.values));
-  const n = labels.length, gw = (W - L) / n, bw = Math.min(26, (gw - 12) / series.length);
-  let g = '';
-  for (let k = 0; k <= 3; k++) {
-    const y = T + (H - T - B) * (1 - k / 3);
-    g += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" class="gl"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" class="ax ay">${short(max * k / 3)}</text>`;
-  }
-  labels.forEach((lb, i) => {
-    const x0 = L + i * gw + (gw - bw * series.length) / 2;
-    series.forEach((s, j) => {
-      const v = s.values[i], h = (v / max) * (H - T - B);
-      g += `<rect class="${s.cls}" x="${(x0 + j * bw).toFixed(1)}" y="${(H - B - h).toFixed(1)}" width="${Math.max(bw - 3, 2).toFixed(1)}" height="${Math.max(h, 0).toFixed(1)}" rx="2"><title>${esc(s.name)} · ${esc(lb)}: ${rpP(v)}</title></rect>`;
-    });
-    g += `<text x="${(L + i * gw + gw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle" class="ax">${esc(lb)}</text>`;
-  });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+function niceMax(m) {
+  const st = m / 3, p = Math.pow(10, Math.floor(Math.log10(st))), n = st / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p * 3;
+}
+function barChart(labels, series) {
+  const max = niceMax(Math.max(1, ...series.flatMap(s => s.values)));
+  let ticks = '';
+  for (let k = 0; k <= 3; k++) ticks += `<div class="bc-tick" style="bottom:${k / 3 * 100}%"><span class="ay">${short(max * k / 3)}</span></div>`;
+  const cols = labels.map((lb, i) => `<div class="bc-col"><div class="bc-bars">${series.map(s => {
+      const v = s.values[i] || 0;
+      return `<div class="bc-bar ${s.cls}${v ? '' : ' zero'}" style="height:${(v / max * 100).toFixed(2)}%" title="${esc(s.name)} · ${esc(lb)}: ${rpP(v)}"><span class="bc-tip">${S.privacy ? '•••' : short(v)}</span></div>`;
+    }).join('')}</div><div class="bc-lb">${esc(lb)}</div></div>`).join('');
+  return `<div class="bchart" role="img"><div class="bc-grid">${ticks}</div><div class="bc-cols">${cols}</div></div>`;
 }
 const legend = series => `<div class="legend">${series.map(s => `<span><i class="dot ${s.cls}"></i>${esc(s.name)}</span>`).join('')}</div>`;
 function monthlyChart(series, n = 6) {
@@ -839,6 +834,7 @@ function matchQ(t, q) {
 }
 const searchBox = (key, ph) => `<input class="search-box" type="search" data-search="${key}" id="search-${key}" placeholder="${esc(ph)}" value="${esc(ui[key].q || '')}" aria-label="Search records">`;
 const typeSelect = (key, types) => `<select data-filter="${key}.type" aria-label="Type"><option value="">All types</option>${types.map(([k, v]) => opt(k, v, ui[key].type)).join('')}</select>`;
+const sumPill = (label, v, cls = '') => `<span class="sum-pill ${cls}"><span class="sp-l">${label}</span><b class="amt">${rp(v)}</b></span>`;
 const resultLine = (list, extra = '') => `<div class="result-line"><span>${list.length} record${list.length === 1 ? '' : 's'}</span>${extra}</div>`;
 
 /* ---------------- Home ---------------- */
@@ -1025,7 +1021,7 @@ function pageIncome() {
     if (tab === 'records') {
       const list = incomeRecords(f, r, true);
       h += filterBar('inc', selects + typeSelect('inc', [['income', 'Income'], ['transfer', 'Transfer'], ['withdraw', 'Withdraw']]) + searchBox('inc', 'Search title, notes, source, pocket…')) +
-        resultLine(list, `<span>In ${amt(sum(list.filter(t => t.type === 'income')), 'pos')}</span>`) +
+        resultLine(list, `<span class="sum-pills">${sumPill('Money in', sum(list.filter(t => t.type === 'income')), 'in')}</span>`) +
         `<div class="card">${txTable(list, {side: 'income'})}</div>`;
     } else {
       const list = incomeRecords(f, r, false);
@@ -1097,7 +1093,7 @@ function pageExpense() {
         (t.type === 'expense' ? pass(t) : (!f.method && (!f.pocket || t.from === f.pocket || t.to === f.pocket) && (!f.tag || [P(t.to)?.tag, P(t.from)?.tag].includes(f.tag)))) &&
         (!f.type || t.type === f.type) && matchQ(t, f.q)));
       h += filterBar('exp', selects + typeSelect('exp', [['expense', 'Expense'], ['transfer', 'Transfer'], ['withdraw', 'Withdraw']]) + searchBox('exp', 'Search title, paid to, notes, method…')) +
-        resultLine(list, `<span>Spent ${amt(sum(list.filter(t => t.type === 'expense')))}</span>`) +
+        resultLine(list, `<span class="sum-pills">${sumPill('Spent', sum(list.filter(t => t.type === 'expense')), 'out')}</span>`) +
         `<div class="card">${txTable(list, {side: 'expense'})}</div>`;
     } else {
       const spentList = exps.filter(t => inR(t.date, r) && pass(t));
@@ -1166,6 +1162,16 @@ function pageSchedules() {
 }
 
 /* ---------------- One pocket ---------------- */
+function descBox(p) {
+  const d = String(p.desc || '').trim();
+  if (!d) return '';
+  const open = !!(ui.descOpen || {})[p.id];
+  return `<div class="pk-desc ${open ? 'open' : ''}">
+    <button type="button" class="pk-desc-btn" data-action="toggleDesc" data-id="${p.id}" aria-expanded="${open}">
+      <span class="pk-desc-lbl">Description</span>${open ? '' : `<span class="pk-desc-peek">${esc(d.split('\n')[0])}</span>`}
+      <svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    ${open ? `<div class="pk-desc-body">${esc(d)}</div>` : ''}</div>`;
+}
 function pagePocket(id) {
   const p = P(id);
   if (!p) return pageHead(icon('pocket', 22), 'Pocket not found', 'It may have been deleted.', `<a class="btn" href="#/home">Back home</a>`);
@@ -1175,7 +1181,7 @@ function pagePocket(id) {
   const sch = S.schedules.filter(s => s.pocket === id || s.to === id);
 
   let h = pageHead(p.archived ? avatar(p, 'lg') : `<button class="icon-pick-btn" data-action="pickIcon" data-id="${id}" title="Change icon">${avatar(p, 'lg')}</button>`, esc(p.name),
-    `<span class="chip light">${esc(p.tag || 'Untagged')}</span> <span class="chip light">${isInc ? 'Income pocket' : 'Expense pocket'}</span>${usual}${p.desc ? ` &nbsp;${esc(p.desc)}` : ''}`,
+    `<div class="pk-chips"><span class="chip light">${esc(p.tag || 'Untagged')}</span> <span class="chip light">${isInc ? 'Income pocket' : 'Expense pocket'}</span>${usual}</div>${descBox(p)}`,
     p.archived ? `<button class="btn btn-primary" data-action="restorePocket" data-id="${id}">Restore pocket</button>` :
     `<button class="btn btn-primary" data-action="transfer" data-from="${id}">⇄ Transfer / reduce</button>
      <button class="btn" data-action="editPocket" data-id="${id}">Edit pocket</button>
@@ -1242,7 +1248,8 @@ function pagePocket(id) {
     const list = sorted(all.filter(t => inR(t.date, r) && matchQ(t, f.q) && (!f.type || (f.type === 'in' ? t.to === id : t.from === id))));
     const dir = `<select data-filter="pk.type" aria-label="Direction">${opt('', 'Money in and out', f.type)}${opt('in', 'Money in only', f.type)}${opt('out', 'Money out only', f.type)}</select>`;
     h += filterBar('pk', dir + searchBox('pk', 'Search title, notes, paid to…')) +
-      resultLine(list, `<span>In ${amt(sum(list.filter(t => t.to === id)), 'pos')} · Out ${amt(sum(list.filter(t => t.from === id)))}</span>`) +
+      (() => { const mi = sum(list.filter(t => t.to === id)), mo = sum(list.filter(t => t.from === id));
+        return resultLine(list, `<span class="sum-pills">${sumPill('Money in', mi, 'in')}${sumPill('Money out', mo, 'out')}${sumPill('Net', mi - mo, 'net')}</span>`); })() +
       `<div class="card">${txTable(list, {ctx: id, run: runMap})}</div>
       <p class="hint-light">New money for this pocket is added from the <a href="#/${isInc ? 'income' : 'expense'}">${isInc ? 'Income' : 'Expense'} page</a>. Every record here can still be edited or deleted.</p>`;
   }
@@ -2099,6 +2106,7 @@ const A = {
     const p = P(d.id); if (!p) return;
     openIconPicker(el, p.icon || '', pocketColor(p), v => { P(d.id).icon = v; save(); render(); toast(v ? 'Icon updated' : 'Icon removed'); });
   },
+  toggleDesc: d => { ui.descOpen = Object.assign({}, ui.descOpen, {[d.id]: !(ui.descOpen || {})[d.id]}); render(); },
   toggleNavGroup: d => {
     S.navCollapsed = Object.assign({}, S.navCollapsed, {[d.type]: !(S.navCollapsed || {})[d.type]});
     saveLocal(); renderNav(route());

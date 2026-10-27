@@ -704,7 +704,7 @@ body.still .logo *{animation-play-state:paused!important}
 .auth-logo .logo{filter:drop-shadow(0 4px 10px rgba(23,105,170,.25))}
 
 /* Seamless sidebar: a little wider, no scrollbar box, soft fade at the edges */
-.app{grid-template-columns:268px 1fr}
+@media (min-width:821px){.app{grid-template-columns:268px 1fr}}
 .sidebar{scrollbar-width:none}
 .sidebar::-webkit-scrollbar{display:none}
 #navPockets{scrollbar-width:none;overscroll-behavior:contain;scroll-behavior:smooth;margin:0 -12px;padding:0 12px}
@@ -745,3 +745,52 @@ body.still .logo *{animation-play-state:paused!important}
 .icon-cell.emoji{font-size:20px;padding:4px}
 .emoji-row{display:flex;gap:8px;margin:0 10px 8px}
 .emoji-row input{flex:1}
+
+/* ---------- v11: summary pills, pocket description, smooth bar chart ---------- */
+.result-line{align-items:center}
+.sum-pills{display:flex;flex-wrap:wrap;gap:6px}
+.sum-pill{display:inline-flex;align-items:baseline;gap:7px;padding:5px 10px;border-radius:var(--r-sm);
+  background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.7);box-shadow:0 2px 10px rgba(6,30,56,.12);
+  color:var(--navy);text-shadow:none;font-size:12.5px;line-height:1.3}
+.sum-pill .sp-l{color:var(--muted);font-weight:500;font-size:11.5px}
+.sum-pill b{font-weight:650;font-variant-numeric:tabular-nums}
+.sum-pill.in b{color:var(--ocean)}
+.sum-pill.out b{color:var(--navy)}
+.sum-pill.net{background:#fff;border-color:rgba(23,105,170,.35)}
+.sum-pill.net .sp-l{color:var(--muted)}
+.sum-pill.net b{color:var(--deep);font-weight:700}
+
+.pk-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pk-chips .chip{margin:0}
+.pk-desc{margin-top:10px;max-width:720px;border-radius:var(--r);background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);overflow:hidden}
+.pk-desc-btn{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;color:#fff;font-size:13px}
+.pk-desc-btn:hover{background:rgba(255,255,255,.08)}
+.pk-desc-btn:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:-2px}
+.pk-desc-lbl{font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;opacity:.85;flex:none}
+.pk-desc-peek{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.82}
+.pk-desc .chev{margin-left:auto;flex:none;transition:transform .2s ease;opacity:.8}
+.pk-desc.open .chev{transform:rotate(180deg)}
+.pk-desc-body{padding:0 12px 11px;color:rgba(255,255,255,.94);font-size:14px;line-height:1.55;white-space:pre-line;animation:descIn .22s ease-out}
+@keyframes descIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.bchart{position:relative;height:200px;margin:6px 0 2px}
+.bc-grid,.bc-cols{position:absolute;left:46px;right:4px;top:8px;bottom:24px}
+.bc-cols{bottom:0;display:flex}
+.bc-tick{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.bc-tick:first-child{border-top-color:var(--line-strong)}
+.bc-tick span{position:absolute;right:calc(100% + 8px);top:-7px;font-size:11px;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bc-col{flex:1;min-width:0;display:flex;flex-direction:column}
+.bc-bars{flex:1;display:flex;align-items:flex-end;justify-content:center;gap:4px}
+.bc-bar{position:relative;width:clamp(8px,24%,26px);border-radius:3px 3px 0 0;transform-origin:bottom;
+  animation:bcGrow .6s cubic-bezier(.2,.7,.2,1) both;transition:filter .15s ease}
+.bc-bar.zero{height:2px!important;opacity:.35}
+.bc-bar:hover{filter:brightness(1.12)}
+.bc-tip{position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);padding:2px 6px;border-radius:4px;
+  background:var(--navy);color:#fff;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s ease}
+.bc-bar:hover .bc-tip{opacity:1}
+.bc-bar.zero .bc-tip{display:none}
+.bc-lb{height:24px;line-height:24px;text-align:center;font-size:11.5px;color:var(--muted)}
+@keyframes bcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){.bc-bar,.pk-desc-body{animation:none}}
+@media (max-width:640px){.bchart{height:170px}.bc-grid,.bc-cols{left:38px}.bc-tick span{font-size:10px}.bc-lb{font-size:10.5px}}
